@@ -491,7 +491,7 @@ namespace lua {
     namespace stack {
         
         template<>
-        inline bool check<lua::Value>(lua_State* luaState, int index)
+        inline bool check<lua::Value>(lua_State*, int)
         {
             return true;
         }

@@ -77,7 +77,7 @@ namespace lua {
         char _message[255];
         
     public:
-        TypeMismatchError(lua_State* luaState, int index)
+        TypeMismatchError(lua_State*, int index)
         : _stackIndex(index) {  }
         
         virtual ~TypeMismatchError() throw() { }

@@ -9,6 +9,7 @@
 #pragma once
 
 #include <limits>
+#include <cstdlib>
 
 namespace lua { namespace stack {
     
@@ -43,7 +44,7 @@ namespace lua { namespace stack {
         return sizeof...(Args);
     }
     
-    inline int push(lua_State* luaState) { return 0; }
+    inline int push(lua_State*) { return 0; }
 
     template<>
     inline int push(lua_State* luaState, int value) {
@@ -171,7 +172,7 @@ namespace lua { namespace stack {
     }
 
     template<>
-    inline int push(lua_State* luaState, lua::Nil value) {
+    inline int push(lua_State* luaState, lua::Nil) {
         LUASTATE_DEBUG_LOG("  PUSH  null\n");
         lua_pushnil(luaState);
         return 1;
@@ -185,7 +186,7 @@ namespace lua { namespace stack {
     }
     
     template<>
-    inline int push(lua_State* luaState, Table value) {
+    inline int push(lua_State* luaState, Table) {
         LUASTATE_DEBUG_LOG("  PUSH  newTable\n");
         lua_newtable(luaState);
         return 1;
@@ -200,7 +201,11 @@ namespace lua { namespace stack {
     //////////////////////////////////////////////////////////////////////////////////////////////
 
     template<typename T>
-    inline bool check(lua_State* luaState, int index);
+    inline bool check(lua_State*, int)
+    {
+        static_assert( !std::is_same<T,T>::value, "Unsupported type" );
+        return false;
+    }
     
     template<>
     inline bool check<lua::Integer>(lua_State* luaState, int index)
@@ -288,7 +293,11 @@ namespace lua { namespace stack {
     //////////////////////////////////////////////////////////////////////////////////////////////
 
     template<typename T>
-    inline T read(lua_State* luaState, int index);
+    inline T read(lua_State*, int)
+    {
+        static_assert(!std::is_same<T,T>::value, "Unsupported type");
+        return T();
+    }
 
     template<>
     inline int read(lua_State* luaState, int index) {
@@ -367,7 +376,7 @@ namespace lua { namespace stack {
     }
 
     template<>
-    inline lua::Nil read(lua_State* luaState, int index) {
+    inline lua::Nil read(lua_State*, int) {
         return nullptr;
     }
     
@@ -435,7 +444,10 @@ namespace lua { namespace stack {
     }
     
     template<typename T>
-    inline void get(lua_State* luaState, int index, T key) {}
+    inline void get(lua_State*, int, T)
+    {
+        static_assert( !std::is_same<T,T>::value, "Invalid key type" );
+    }
     
     template<>
     inline void get(lua_State* luaState, int index, const char* key) {
@@ -449,6 +461,12 @@ namespace lua { namespace stack {
         lua_rawgeti(luaState, index, key);
     }
     
+    template<>
+    inline void get(lua_State* luaState, int index, size_t key) {
+        LUASTATE_DEBUG_LOG("GET  %d", key);
+        lua_rawgeti(luaState, index, key);
+    }
+
     inline void get_global(lua_State* luaState, const char* name) {
         LUASTATE_DEBUG_LOG("GET_GLOBAL %s", name);
         lua_getglobal(luaState, name);
