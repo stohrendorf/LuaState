@@ -86,7 +86,7 @@ namespace lua {
         /// @param function     Function being called
 	    void operator= (const Value& value) {
             
-            int requiredValues = sizeof...(Ts) < value._stack->pushed ? sizeof...(Ts) : value._stack->pushed;
+            int requiredValues = std::min<int>(sizeof...(Ts), value._stack->pushed);
             
             // When there are more returned values than variables in tuple, we will clear values that are not needed
             if (requiredValues < (value._stack->grouped + 1)) {
