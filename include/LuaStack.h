@@ -10,6 +10,7 @@
 
 #include <limits>
 #include <cstdlib>
+#include <cstdint>
 
 namespace lua { namespace stack {
     
@@ -28,7 +29,7 @@ namespace lua { namespace stack {
     inline int push(lua_State* luaState, T value, Ts... values) {
         push(luaState, std::forward<T>(value));
         push(luaState, values...);
-        return sizeof...(Ts) + 1;
+        return static_cast<int>(sizeof...(Ts) + 1);
     }
     
     template<typename ... Args, size_t ... Indexes>
@@ -41,7 +42,7 @@ namespace lua { namespace stack {
     inline int push(lua_State* luaState, const std::tuple<Args...>& tuple)
     {
         push_tuple(luaState, typename traits::make_indexes<Args...>::type(), tuple);
-        return sizeof...(Args);
+        return static_cast<int>(sizeof...(Args));
     }
     
     inline int push(lua_State*) { return 0; }
@@ -63,7 +64,7 @@ namespace lua { namespace stack {
     template<>
     inline int push(lua_State* luaState, long long int value) {
         LUASTATE_DEBUG_LOG("  PUSH  %lld", value);
-        lua_pushnumber(luaState, value);
+        lua_pushnumber(luaState, static_cast<lua_Number>(value));
         return 1;
     }
     
@@ -98,7 +99,7 @@ namespace lua { namespace stack {
     template<>
     inline int push(lua_State* luaState, unsigned long long int value) {
         LUASTATE_DEBUG_LOG("  PUSH  %llud", value);
-        lua_pushnumber(luaState, value);
+        lua_pushnumber(luaState, static_cast<lua_Number>(value));
         return 1;
     }
 
@@ -192,9 +193,9 @@ namespace lua { namespace stack {
         return 1;
     }
     
-    inline int push_str(lua_State* luaState, const char* value, int lenght) {
+    inline int push_str(lua_State* luaState, const char* value, size_t length) {
         LUASTATE_DEBUG_LOG("  PUSH  %s", value);
-        lua_pushlstring(luaState, value, lenght);
+        lua_pushlstring(luaState, value, length);
         return 1;
     }
     
@@ -217,17 +218,23 @@ namespace lua { namespace stack {
         double number = lua_tonumber(luaState, index);
         return fabs(number - static_cast<int>(number + eps)) <= eps;
     }
+
+    template<>
+    inline bool check<int>(lua_State* luaState, int index)
+    {
+        return check<lua::Integer>(luaState, index);
+    }
     
     template<>
     inline bool check<lua::Number>(lua_State* luaState, int index)
     {
-        return lua_isnumber(luaState, index);
+        return lua_isnumber(luaState, index) != 0;
     }
     
     template<>
     inline bool check<lua::Boolean>(lua_State* luaState, int index)
     {
-        return lua_isboolean(luaState, index);
+        return lua_isboolean(luaState, index) != 0;
     }
     
     template<>
@@ -237,44 +244,44 @@ namespace lua { namespace stack {
         if (lua_isnumber(luaState, index))
             return false;
         
-        return lua_isstring(luaState, index);
+        return lua_isstring(luaState, index) != 0;
     }
     
     template<>
     inline bool check<lua::Nil>(lua_State* luaState, int index)
     {
-        return lua_isnoneornil(luaState, index);
+        return lua_isnoneornil(luaState, index) != 0;
     }
     
     template<>
     inline bool check<lua::Pointer>(lua_State* luaState, int index)
     {
-        return lua_islightuserdata(luaState, index);
+        return lua_islightuserdata(luaState, index) != 0;
     }
     
     template<>
     inline bool check<lua::Table>(lua_State* luaState, int index)
     {
-        return lua_istable(luaState, index);
+        return lua_istable(luaState, index) != 0;
     }
     
     template<>
     inline bool check<unsigned>(lua_State* luaState, int index)
     {
-        return lua_isnumber(luaState, index);
+        return lua_isnumber(luaState, index) != 0;
     }
     
     template<>
     inline bool check<float>(lua_State* luaState, int index)
     {
-        return lua_isnumber(luaState, index);
+        return lua_isnumber(luaState, index) != 0;
     }
 
     template<>
     inline bool check<lua::Callable>(lua_State* luaState, int index)
     {
         lua_State* state = luaState;
-        bool isCallable = lua_isfunction(state, index) || lua_iscfunction(state, index);
+        bool isCallable = lua_isfunction(state, index) != 0 || lua_iscfunction(state, index) != 0;
         
         if (!isCallable) {
             lua_getmetatable(state, index);
@@ -300,61 +307,35 @@ namespace lua { namespace stack {
     }
 
     template<>
-    inline int read(lua_State* luaState, int index) {
-        return lua_tointeger(luaState, index);
-    }
-    
-    template<>
-    inline long read(lua_State* luaState, int index) {
-        return static_cast<long>(lua_tointeger(luaState, index));
-    }
-    
-    template<>
-    inline long long read(lua_State* luaState, int index) {
-        return static_cast<long long>(lua_tointeger(luaState, index));
-    }
-    
-    template<>
-    inline short read(lua_State* luaState, int index) {
-        return static_cast<short>(lua_tointeger(luaState, index));
-    }
-    
-    template<>
-    inline unsigned read(lua_State* luaState, int index) {
-#if LUA_VERSION_NUM > 501
-        return static_cast<unsigned>(lua_tounsigned(luaState, index));
-#else
-        return static_cast<unsigned>(lua_tointeger(luaState, index));
-#endif
-    }
-    
-    template<>
-    inline unsigned short read(lua_State* luaState, int index) {
-#if LUA_VERSION_NUM > 501
-        return static_cast<unsigned short>(lua_tounsigned(luaState, index));
-#else
-        return static_cast<unsigned short>(lua_tointeger(luaState, index));
-#endif
-    }
-    
-    template<>
-    inline unsigned long read(lua_State* luaState, int index) {
-#if LUA_VERSION_NUM > 501
-        return static_cast<unsigned long>(lua_tounsigned(luaState, index));
-#else
-        return static_cast<unsigned long>(lua_tointeger(luaState, index));
-#endif
-    }
-    
-    template<>
-    inline unsigned long long read(lua_State* luaState, int index) {
-#if LUA_VERSION_NUM > 501
-        return static_cast<unsigned long long>(lua_tounsigned(luaState, index));
-#else
-        return static_cast<unsigned long long>(lua_tointeger(luaState, index));
-#endif
+    inline int16_t read(lua_State* luaState, int index) {
+        return static_cast<int16_t>( lua_tointeger(luaState, index) );
     }
 
+    template<>
+    inline int32_t read(lua_State* luaState, int index) {
+        return static_cast<int32_t>( lua_tointeger(luaState, index) );
+    }
+
+    template<>
+    inline int64_t read(lua_State* luaState, int index) {
+        return static_cast<int64_t>( lua_tointeger(luaState, index) );
+    }
+    
+    template<>
+    inline uint16_t read(lua_State* luaState, int index) {
+        return static_cast<uint16_t>(lua_tounsigned(luaState, index));
+    }
+    
+    template<>
+    inline uint32_t read(lua_State* luaState, int index) {
+        return static_cast<uint32_t>(lua_tounsigned(luaState, index));
+    }
+    
+    template<>
+    inline uint64_t read(lua_State* luaState, int index) {
+        return static_cast<uint64_t>(lua_tounsigned(luaState, index));
+    }
+    
     template<>
     inline double read(lua_State* luaState, int index) {
         return static_cast<double>(lua_tonumber(luaState, index));
@@ -372,7 +353,7 @@ namespace lua { namespace stack {
 
     template<>
     inline bool read(lua_State* luaState, int index) {
-        return lua_toboolean(luaState, index);
+        return lua_toboolean(luaState, index) != 0;
     }
 
     template<>
@@ -391,8 +372,8 @@ namespace lua { namespace stack {
     }
     
     template<>
-    inline unsigned char read(lua_State* luaState, int index) {
-        return static_cast<unsigned char>(lua_tostring(luaState, index)[0]);
+    inline uint8_t read(lua_State* luaState, int index) {
+        return static_cast<uint8_t>(lua_tostring(luaState, index)[0]);
     }
     
     template<>
@@ -406,8 +387,8 @@ namespace lua { namespace stack {
     }
 
     template<>
-    inline const unsigned char* read(lua_State* luaState, int index) {
-        return reinterpret_cast<const unsigned char*>(lua_tostring(luaState, index));;
+    inline const uint8_t* read(lua_State* luaState, int index) {
+        return reinterpret_cast<const uint8_t*>(lua_tostring(luaState, index));;
     }
     
     //////////////////////////////////////////////////////////////////////////////////////////////
@@ -458,6 +439,12 @@ namespace lua { namespace stack {
     template<>
     inline void get(lua_State* luaState, int index, int key) {
         LUASTATE_DEBUG_LOG("GET  %d", key);
+        lua_rawgeti(luaState, index, key);
+    }
+    
+    template<>
+    inline void get(lua_State* luaState, int index, lua::Integer key) {
+        LUASTATE_DEBUG_LOG("GET  %ld", key);
         lua_rawgeti(luaState, index, key);
     }
     

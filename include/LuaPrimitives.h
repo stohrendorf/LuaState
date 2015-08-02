@@ -18,7 +18,7 @@ namespace lua
     
     typedef lua_Number Number;
     
-    typedef int Integer;
+    typedef lua_Integer Integer;
     
     typedef bool Boolean;
     
