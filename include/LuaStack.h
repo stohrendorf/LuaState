@@ -222,7 +222,7 @@ namespace lua { namespace stack {
     template<>
     inline bool check<int>(lua_State* luaState, int index)
     {
-        return check<lua::Integer>(luaState, index);
+        return check<long>(luaState, index);
     }
     
     template<>
