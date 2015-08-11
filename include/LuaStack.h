@@ -226,6 +226,12 @@ namespace lua { namespace stack {
     }
     
     template<>
+    inline bool check<long long>(lua_State* luaState, int index)
+    {
+        return check<long>(luaState, index);
+    }
+
+    template<>
     inline bool check<lua::Number>(lua_State* luaState, int index)
     {
         return lua_isnumber(luaState, index) != 0;
