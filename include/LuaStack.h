@@ -322,6 +322,11 @@ namespace lua { namespace stack {
     }
     
     template<>
+    inline long long read(lua_State* luaState, int index) {
+        return static_cast<long long>(lua_tounsigned(luaState, index));
+    }
+
+    template<>
     inline uint16_t read(lua_State* luaState, int index) {
         return static_cast<uint16_t>(lua_tounsigned(luaState, index));
     }
@@ -336,6 +341,11 @@ namespace lua { namespace stack {
         return static_cast<uint64_t>(lua_tounsigned(luaState, index));
     }
     
+    template<>
+    inline long long unsigned read(lua_State* luaState, int index) {
+        return static_cast<long long unsigned>(lua_tounsigned(luaState, index));
+    }
+
     template<>
     inline double read(lua_State* luaState, int index) {
         return static_cast<double>(lua_tonumber(luaState, index));
@@ -443,7 +453,7 @@ namespace lua { namespace stack {
     }
     
     template<>
-    inline void get(lua_State* luaState, int index, lua::Integer key) {
+    inline void get(lua_State* luaState, int index, long key) {
         LUASTATE_DEBUG_LOG("GET  %ld", key);
         lua_rawgeti(luaState, index, key);
     }
