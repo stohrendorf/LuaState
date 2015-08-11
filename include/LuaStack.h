@@ -209,12 +209,12 @@ namespace lua { namespace stack {
     }
     
     template<>
-    inline bool check<lua::Integer>(lua_State* luaState, int index)
+    inline bool check<long>(lua_State* luaState, int index)
     {
         if (!lua_isnumber(luaState, index))
             return false;
         
-        lua_Number eps = std::numeric_limits<lua_Number>::epsilon();
+        lua_Number eps = std::numeric_limits<long>::epsilon();
         double number = lua_tonumber(luaState, index);
         return fabs(number - static_cast<int>(number + eps)) <= eps;
     }
