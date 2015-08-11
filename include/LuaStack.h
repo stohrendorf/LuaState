@@ -55,21 +55,21 @@ namespace lua { namespace stack {
     }
     
     template<>
-    inline int push(lua_State* luaState, short int value) {
+    inline int push(lua_State* luaState, short value) {
         LUASTATE_DEBUG_LOG("  PUSH  %d", value);
         lua_pushnumber(luaState, value);
         return 1;
     }
     
     template<>
-    inline int push(lua_State* luaState, long long int value) {
+    inline int push(lua_State* luaState, long long value) {
         LUASTATE_DEBUG_LOG("  PUSH  %lld", value);
         lua_pushnumber(luaState, static_cast<lua_Number>(value));
         return 1;
     }
     
     template<>
-    inline int push(lua_State* luaState, unsigned short int value) {
+    inline int push(lua_State* luaState, unsigned short value) {
         LUASTATE_DEBUG_LOG("  PUSH  %d", value);
         lua_pushnumber(luaState, value);
         return 1;
@@ -83,21 +83,21 @@ namespace lua { namespace stack {
     }
     
     template<>
-    inline int push(lua_State* luaState, long int value) {
+    inline int push(lua_State* luaState, long value) {
         LUASTATE_DEBUG_LOG("  PUSH  %ld", value);
         lua_pushnumber(luaState, value);
         return 1;
     }
     
     template<>
-    inline int push(lua_State* luaState, unsigned long int value) {
+    inline int push(lua_State* luaState, unsigned long value) {
         LUASTATE_DEBUG_LOG("  PUSH  %lud", value);
         lua_pushnumber(luaState, value);
         return 1;
     }
     
     template<>
-    inline int push(lua_State* luaState, unsigned long long int value) {
+    inline int push(lua_State* luaState, unsigned long long value) {
         LUASTATE_DEBUG_LOG("  PUSH  %llud", value);
         lua_pushnumber(luaState, static_cast<lua_Number>(value));
         return 1;
@@ -307,43 +307,43 @@ namespace lua { namespace stack {
     }
 
     template<>
-    inline int16_t read(lua_State* luaState, int index) {
-        return static_cast<int16_t>( lua_tointeger(luaState, index) );
+    inline short read(lua_State* luaState, int index) {
+        return static_cast<short>( lua_tointeger(luaState, index) );
     }
 
     template<>
-    inline int32_t read(lua_State* luaState, int index) {
-        return static_cast<int32_t>( lua_tointeger(luaState, index) );
+    inline int read(lua_State* luaState, int index) {
+        return static_cast<int>( lua_tointeger(luaState, index) );
     }
 
     template<>
-    inline int64_t read(lua_State* luaState, int index) {
-        return static_cast<int64_t>( lua_tointeger(luaState, index) );
+    inline long read(lua_State* luaState, int index) {
+        return static_cast<long>( lua_tointeger(luaState, index) );
     }
-    
+
     template<>
     inline long long read(lua_State* luaState, int index) {
-        return static_cast<long long>(lua_tounsigned(luaState, index));
+        return static_cast<long long>( lua_tointeger(luaState, index) );
     }
 
     template<>
-    inline uint16_t read(lua_State* luaState, int index) {
-        return static_cast<uint16_t>(lua_tounsigned(luaState, index));
+    inline unsigned short read(lua_State* luaState, int index) {
+        return static_cast<unsigned short>(lua_tounsigned(luaState, index));
     }
     
     template<>
-    inline uint32_t read(lua_State* luaState, int index) {
-        return static_cast<uint32_t>(lua_tounsigned(luaState, index));
+    inline unsigned int read(lua_State* luaState, int index) {
+        return static_cast<unsigned short>(lua_tounsigned(luaState, index));
     }
     
     template<>
-    inline uint64_t read(lua_State* luaState, int index) {
-        return static_cast<uint64_t>(lua_tounsigned(luaState, index));
+    inline unsigned long read(lua_State* luaState, int index) {
+        return static_cast<unsigned long>(lua_tounsigned(luaState, index));
     }
-    
+
     template<>
-    inline long long unsigned read(lua_State* luaState, int index) {
-        return static_cast<long long unsigned>(lua_tounsigned(luaState, index));
+    inline unsigned long long read(lua_State* luaState, int index) {
+        return static_cast<unsigned long long>(lua_tounsigned(luaState, index));
     }
 
     template<>
@@ -447,11 +447,17 @@ namespace lua { namespace stack {
     }
     
     template<>
-    inline void get(lua_State* luaState, int index, int key) {
+    inline void get(lua_State* luaState, int index, short key) {
         LUASTATE_DEBUG_LOG("GET  %d", key);
         lua_rawgeti(luaState, index, key);
     }
     
+    template<>
+    inline void get(lua_State* luaState, int index, int key) {
+        LUASTATE_DEBUG_LOG("GET  %d", key);
+        lua_rawgeti(luaState, index, key);
+    }
+
     template<>
     inline void get(lua_State* luaState, int index, long key) {
         LUASTATE_DEBUG_LOG("GET  %ld", key);
@@ -459,8 +465,32 @@ namespace lua { namespace stack {
     }
     
     template<>
-    inline void get(lua_State* luaState, int index, size_t key) {
+    inline void get(lua_State* luaState, int index, long long key) {
+        LUASTATE_DEBUG_LOG("GET  %lld", key);
+        lua_rawgeti(luaState, index, key);
+    }
+
+    template<>
+    inline void get(lua_State* luaState, int index, unsigned short key) {
         LUASTATE_DEBUG_LOG("GET  %d", key);
+        lua_rawgeti(luaState, index, key);
+    }
+
+    template<>
+    inline void get(lua_State* luaState, int index, unsigned int key) {
+        LUASTATE_DEBUG_LOG("GET  %d", key);
+        lua_rawgeti(luaState, index, key);
+    }
+
+    template<>
+    inline void get(lua_State* luaState, int index, unsigned long key) {
+        LUASTATE_DEBUG_LOG("GET  %ld", key);
+        lua_rawgeti(luaState, index, key);
+    }
+
+    template<>
+    inline void get(lua_State* luaState, int index, unsigned long long key) {
+        LUASTATE_DEBUG_LOG("GET  %llud", key);
         lua_rawgeti(luaState, index, key);
     }
 
