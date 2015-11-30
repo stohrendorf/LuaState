@@ -58,7 +58,7 @@ int main(int argc, char** argv)
     
     // Check returning values from doString
     int a1, a2, a3;
-    a1 = state.doString("return 10");
+    a1 = state.doString("return 10").toInt();
     assert(a1 == 10);
     lua::tie(a1) = state.doString("return 100");
     assert(a1 == 100);
@@ -74,7 +74,7 @@ int main(int argc, char** argv)
     luaFile << "return 11, 12, 13" << std::endl;
     luaFile.close();
     
-    a1 = state.doFile("test.lua");
+    a1 = state.doFile("test.lua").toInt();
     assert(a1 == 11);
     lua::tie(a1, a2, a3) = state.doFile("test.lua");
     assert(a1 == 11 && a2 == 12 && a3 == 13);

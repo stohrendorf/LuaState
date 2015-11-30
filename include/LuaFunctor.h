@@ -9,19 +9,19 @@
 
 #pragma once
 
+#include "LuaState.h"
+
+#include <type_traits>
+
 namespace lua {
     
     //////////////////////////////////////////////////////////////////////////////////////////////
     /// Base functor class with call function. It is used for registering lamdas, or regular functions
     struct BaseFunctor
     {
-        BaseFunctor() {
-            LUASTATE_DEBUG_LOG("Functor %p created!", this);
-        }
+        BaseFunctor() = default;
         
-        virtual ~BaseFunctor() {
-            LUASTATE_DEBUG_LOG("Functor %p destructed!", this);
-        }
+        virtual ~BaseFunctor() noexcept = default;
         
         /// In Lua numbers of argumens can be different so here we will handle these situations.
         ///
@@ -42,21 +42,25 @@ namespace lua {
     
     //////////////////////////////////////////////////////////////////////////////////////////////
     /// Functor with return values
-    template <typename Ret, typename ... Args>
+    template<typename Ret, typename ... Args>
     struct Functor : public BaseFunctor {
         std::function<Ret(Args...)> function;
         
         /// Constructor creates functor to be pushed to Lua interpret
-        Functor(std::function<Ret(Args...)> function) : BaseFunctor(), function(function) {}
+        Functor(std::function<Ret(Args...)> function)
+            : BaseFunctor()
+            , function(function)
+        {
+        }
         
         /// We will make Lua call to our functor.
         ///
         /// @note When we call function from Lua to C, they have their own stack, where in the first position is our binded userdata and next position are pushed arguments
         ///
         /// @param luaState     Pointer of Lua state
-        int call(lua_State* luaState) {
-            Ret value = traits::apply(function, stack::get_and_pop<Args...>(luaState, nullptr, 2));
-            return stack::push(luaState, value);
+        int call(lua_State* luaState) override {
+            Ret value = traits::call(function, stack::get_and_pop<Args...>(luaState, nullptr, 2));
+            return traits::ValueTraits<Ret>::push(luaState, std::forward<Ret>(value));
         }
     };
     
@@ -67,47 +71,61 @@ namespace lua {
         std::function<void(Args...)> function;
         
         /// Constructor creates functor to be pushed to Lua interpret
-        Functor(std::function<void(Args...)> function) : BaseFunctor(), function(function) {}
+        Functor(std::function<void(Args...)> function)
+            : BaseFunctor()
+            , function(function)
+        {
+        }
         
         /// We will make Lua call to our functor.
         ///
         /// @note When we call function from Lua to C, they have their own stack, where in the first position is our binded userdata and next position are pushed arguments
         ///
         /// @param luaState     Pointer of Lua state
-        int call(lua_State* luaState) {
-            traits::apply_no_ret(function, stack::get_and_pop<Args...>(luaState, nullptr, 2));
+        int call(lua_State* luaState) override {
+            traits::call(function, stack::get_and_pop<Args...>(luaState, nullptr, 2));
             return 0;
         }
     };
-    
-    namespace stack {
-        
-        template <typename Ret, typename ... Args>
-        inline int push(lua_State* luaState, Ret(*function)(Args...)) {
-            BaseFunctor** udata = (BaseFunctor **)lua_newuserdata(luaState, sizeof(BaseFunctor *));
-            *udata = new Functor<Ret, Args...>(function);
-            
-            luaL_getmetatable(luaState, "luaL_Functor");
-            lua_setmetatable(luaState, -2);
-            return 1;
-        }
-        
-        template <typename Ret, typename ... Args>
-        inline int push(lua_State* luaState, std::function<Ret(Args...)> function) {
-            BaseFunctor** udata = (BaseFunctor **)lua_newuserdata(luaState, sizeof(BaseFunctor *));
-            *udata = new Functor<Ret, Args...>(function);
-            
-            luaL_getmetatable(luaState, "luaL_Functor");
-            lua_setmetatable(luaState, -2);
-            return 1;
-        }
-        
-        template<typename T>
-        inline int push(lua_State* luaState, T function)
+
+    namespace traits
+    {
+        template<typename Ret, typename... Args>
+        struct ValueTraits<std::function<Ret(Args...)>>
         {
-            push(luaState, (typename traits::function_traits<T>::Function)(function));
-            return 1;
-        }
-        
+            static inline int push(lua_State* luaState, std::function<Ret(Args...)> function) {
+                BaseFunctor** udata = (BaseFunctor **)lua_newuserdata(luaState, sizeof(BaseFunctor *));
+                *udata = new Functor<Ret, Args...>(function);
+
+                luaL_getmetatable(luaState, "luaL_Functor");
+                lua_setmetatable(luaState, -2);
+                return 1;
+            }
+        };
+
+        template<typename Ret, typename... Args>
+        struct ValueTraits<Ret(Args...)> : ValueTraits<std::function<Ret(Args...)>>
+        {
+        };
+
+        template<typename Ret, typename... Args>
+        struct ValueTraits<Ret(*)(Args...)> : ValueTraits<std::function<Ret(Args...)>>
+        {
+        };
+
+        template <typename T>
+        struct ValueTraits : public ValueTraits<decltype(&T::operator())>
+        {
+        };
+
+        template <typename C, typename R, typename... Args>
+        struct ValueTraits<R(C::*)(Args...)> : ValueTraits<R(Args...)>
+        {
+        };
+
+        template <typename C, typename R, typename... Args>
+        struct ValueTraits<R(C::*)(Args...) const> : ValueTraits<R(Args...)>
+        {
+        };
     }
 }

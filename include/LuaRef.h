@@ -8,55 +8,68 @@
 
 #pragma once
 
+#include "LuaValue.h"
+
 namespace lua {
     
     /// Reference to Lua value. Can be created from any lua::Value
     class Ref
     {
         /// Pointer of Lua state
-        lua_State* _luaState;
-        detail::DeallocQueue* _deallocQueue;
+        lua_State* m_luaState;
+        detail::DeallocQueue* m_deallocQueue;
         
         /// Key of referenced value in LUA_REGISTRYINDEX
-        int _refKey;
+        int m_refKey;
         
-        void createRefKey() {
-            _refKey = luaL_ref(_luaState, LUA_REGISTRYINDEX);
+        void createRefKey()
+        {
+            m_refKey = luaL_ref(m_luaState, LUA_REGISTRYINDEX);
         }
         
     public:
         
-        Ref() : _luaState(nullptr) {}
+        Ref() : m_luaState(nullptr) {}
         
         // Copy and move constructors just use operator functions
-        Ref(const Value& value) { operator=(value); }
-        Ref(Value&& value) { operator=(value); }
+        Ref(const Value& value)
+        {
+            operator=(value);
+        }
+
+        Ref(Value&& value)
+        {
+            operator=(std::forward<Value>(value));
+        }
         
-        ~Ref() {
-            luaL_unref(_luaState, LUA_REGISTRYINDEX, _refKey);
+        ~Ref()
+        {
+            luaL_unref(m_luaState, LUA_REGISTRYINDEX, m_refKey);
         }
         
         /// Copy assignment. Creates lua::Ref from lua::Value.
-        void operator= (const Value& value) {
-            _luaState = value._stack->state;
-            _deallocQueue = value._stack->deallocQueue;
+        void operator= (const Value& value)
+        {
+            m_luaState = value.m_stack->state;
+            m_deallocQueue = value.m_stack->deallocQueue;
 
             // Duplicate top value
-            lua_pushvalue(_luaState, -1);
+            lua_pushvalue(m_luaState, -1);
             
             // Create reference to registry
             createRefKey();
 	    }
 
         /// Move assignment. Creates lua::Ref from lua::Value from top of stack and pops it
-        void operator= (Value&& value) {
-            _luaState = value._stack->state;
-            _deallocQueue = value._stack->deallocQueue;
+        void operator= (Value&& value)
+        {
+            m_luaState = value.m_stack->state;
+            m_deallocQueue = value.m_stack->deallocQueue;
             
-            if (value._stack->pushed > 0)
-                value._stack->pushed -= 1;
+            if (value.m_stack->pushed > 0)
+                value.m_stack->pushed -= 1;
             else
-                value._stack->top -= 1;
+                value.m_stack->top -= 1;
             
             // Create reference to registry
             createRefKey();
@@ -65,12 +78,16 @@ namespace lua {
         /// Creates lua::Value from lua::Ref
         ///
         /// @return lua::Value with referenced value on stack
-        Value unref() const {
-            lua_rawgeti(_luaState, LUA_REGISTRYINDEX, _refKey);
-            return Value(std::make_shared<detail::StackItem>(_luaState, _deallocQueue, stack::top(_luaState) - 1, 1, 0));
+        Value unref() const
+        {
+            lua_rawgeti(m_luaState, LUA_REGISTRYINDEX, m_refKey);
+            return Value(std::make_shared<detail::StackItem>(m_luaState, m_deallocQueue, stack::top(m_luaState) - 1, 1, 0));
         }
         
-        bool isInitialized() const { return _luaState != nullptr; }
+        bool isInitialized() const
+        {
+            return m_luaState != nullptr;
+        }
     };
     
     

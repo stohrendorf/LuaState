@@ -18,31 +18,31 @@ int main(int argc, char** argv)
     state.doString(createFunctions);
     
     // Test indexes
-    assert(state["table"][1] == 100);
-    assert(strcmp(state["table"][2], "hello") == 0);
-    assert(state["table"][3] == true);
+    assert(state["table"][1].toInt() == 100);
+    assert(strcmp(state["table"][2].toCStr(), "hello") == 0);
+    assert(state["table"][3].toBool() == true);
     
     // Test fields
-    assert(state["table"]["one"] == 1);
-    assert(state["table"]["two"] == 2);
-    assert(state["table"]["three"] == 3);
+    assert(state["table"]["one"].toInt() == 1);
+    assert(state["table"]["two"].toInt() == 2);
+    assert(state["table"]["three"].toInt() == 3);
     
-    assert(state["table"]["a"] == 'a');
-    assert(state["table"]["b"] == 'b');
-    assert(state["table"]["c"] == 'c');
+    assert(state["table"]["a"].toCStr()[0] == 'a');
+    assert(state["table"]["b"].toCStr()[0] == 'b');
+    assert(state["table"]["c"].toCStr()[0] == 'c');
     
     // Test nesting tables
-    assert(state["nested"]["table"]["one"] == 1);
-    assert(state["nested"]["nested"]["table"]["two"] == 2);
-    assert(state["nested"]["nested"]["nested"]["table"]["three"] == 3);
+    assert(state["nested"]["table"]["one"].toInt() == 1);
+    assert(state["nested"]["nested"]["table"]["two"].toInt() == 2);
+    assert(state["nested"]["nested"]["nested"]["table"]["three"].toInt() == 3);
     
-    assert(state["nested"]["nested"]["nested"]["nested"]["table"]["a"] == 'a');
-    assert(state["nested"]["nested"]["table"]["b"] == 'b');
-    assert(state["nested"]["nested"]["nested"]["nested"]["nested"]["nested"]["table"]["c"] == 'c');
+    assert(state["nested"]["nested"]["nested"]["nested"]["table"]["a"].toCStr()[0] == 'a');
+    assert(state["nested"]["nested"]["table"]["b"].toCStr()[0] == 'b');
+    assert(state["nested"]["nested"]["nested"]["nested"]["nested"]["nested"]["table"]["c"].toCStr()[0] == 'c');
     
     // Test function return values
-    assert(state["getInteger"]() == 10);
-    assert(state["getValues"]() == 1);
+    assert(state["getInteger"]().toInt() == 10);
+    assert(state["getValues"]().toInt() == 1);
     
     // Test function multi return values
     int a, b, c, d;
@@ -56,22 +56,22 @@ int main(int argc, char** argv)
     assert(a == 1 && b == 2 && c == 3);
     
     // Test mixed nesting
-    assert(state["getTable"]()[1] == 100);
-    assert(state["getTable"]()["a"] == 'a');
+    assert(state["getTable"]()[1].toInt() == 100);
+    assert(state["getTable"]()["a"].toCStr()[0] == 'a');
     
-    assert(state["getNested"]()["func"]()["func"]()["func"]()["table"][1] == 100);
-    assert(state["getNested"]()["func"]()["func"]()["func"]()["table"]["a"] == 'a');
+    assert(state["getNested"]()["func"]()["func"]()["func"]()["table"][1].toInt() == 100);
+    assert(state["getNested"]()["func"]()["func"]()["func"]()["table"]["a"].toCStr()[0] == 'a');
     
     // Test mixed nesting with multi return
-    assert(state["getNestedValues"]() == 1);
+    assert(state["getNestedValues"]().toInt() == 1);
     
     {
         lua::Value test;
         lua::tie(a, test, c) = state["getNestedValues"]();
         assert(a == 1 && c == 3);
-        assert(test[1] == 1);
-        assert(test[2] == 2);
-        assert(test[3] == 3);
+        assert(test[1].toInt() == 1);
+        assert(test[2].toInt() == 2);
+        assert(test[3].toInt() == 3);
     }
     
     // Test get function

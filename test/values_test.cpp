@@ -17,50 +17,50 @@ int main(int argc, char** argv)
     
     {
         // Test move sematics with lvalue
-        assert(state["number"] == 2.5);
-        assert(state["getValues"]() == 1);
+        assert(state["number"].toNumber() == 2.5);
+        assert(state["getValues"]().toInt() == 1);
         
         // Test copy sematics with rvalue
         lua::Value function = state["getInteger"];
         lua::Value value = state["number"];
-        assert(function() == 10);
-        assert(value == 2.5);
-        assert(function() == 10);
-        assert(value == 2.5);
-        assert(function() == 10);
-        assert(value == 2.5);
+        assert(function().toInt() == 10);
+        assert(value.toNumber() == 2.5);
+        assert(function().toInt() == 10);
+        assert(value.toNumber() == 2.5);
+        assert(function().toInt() == 10);
+        assert(value.toNumber() == 2.5);
         
         value = state["number"];
         value = state["number"];
         value = state["number"];
-        assert(function() == 10);
-        assert(value == 2.5);
-        assert(function() == 10);
-        assert(value == 2.5);
-        assert(function() == 10);
-        assert(value == 2.5);
+        assert(function().toInt() == 10);
+        assert(value.toNumber() == 2.5);
+        assert(function().toInt() == 10);
+        assert(value.toNumber() == 2.5);
+        assert(function().toInt() == 10);
+        assert(value.toNumber() == 2.5);
         
         value = state["getInteger"];
         function = state["number"];
         function = state["getInteger"];
         value = state["number"];
-        assert(function() == 10);
-        assert(value == 2.5);
-        assert(function() == 10);
-        assert(value == 2.5);
-        assert(function() == 10);
-        assert(value == 2.5);
+        assert(function().toInt() == 10);
+        assert(value.toNumber() == 2.5);
+        assert(function().toInt() == 10);
+        assert(value.toNumber() == 2.5);
+        assert(function().toInt() == 10);
+        assert(value.toNumber() == 2.5);
         
         value = function;
         value = function;
         value = function;
         function = state["number"];
-        assert(function == 2.5);
-        assert(value() == 10);
-        assert(function == 2.5);
-        assert(value() == 10);
-        assert(function == 2.5);
-        assert(value() == 10);
+        assert(function.toNumber() == 2.5);
+        assert(value().toInt() == 10);
+        assert(function.toNumber() == 2.5);
+        assert(value().toInt() == 10);
+        assert(function.toNumber() == 2.5);
+        assert(value().toInt() == 10);
     }
     
     // Test deletion in FILO order
@@ -68,18 +68,18 @@ int main(int argc, char** argv)
         lua::Value v1 = state["table"]["a"];
         {
             lua::Value v2 = state["table"]["b"];
-            assert(v2 == 'b');
-            assert(v1 == 'a');
+            assert(v2.toCStr()[0] == 'b');
+            assert(v1.toCStr()[0] == 'a');
             {
                 lua::Value v3 = state["table"]["c"];
-                assert(v1 == 'a');
-                assert(v2 == 'b');
-                assert(v3 == 'c');
+                assert(v1.toCStr()[0] == 'a');
+                assert(v2.toCStr()[0] == 'b');
+                assert(v3.toCStr()[0] == 'c');
             }
-            assert(v2 == 'b');
-            assert(v1 == 'a');
+            assert(v2.toCStr()[0] == 'b');
+            assert(v1.toCStr()[0] == 'a');
         }
-        assert(v1 == 'a');
+        assert(v1.toCStr()[0] == 'a');
     }
     
     // Test deletion FIFO order
@@ -90,37 +90,37 @@ int main(int argc, char** argv)
     lua::Value* v5 = new lua::Value(state["table"]["two"]);
     lua::Value* v6 = new lua::Value(state["table"]["three"]);
     
-    assert(*v1 == 'a');
-    assert(*v2 == 'b');
-    assert(*v3 == 'c');
-    assert(*v4 == 1);
-    assert(*v5 == 2);
-    assert(*v6 == 3);
+    assert(v1->toCStr()[0] == 'a');
+    assert(v2->toCStr()[0] == 'b');
+    assert(v3->toCStr()[0] == 'c');
+    assert(v4->toInt() == 1);
+    assert(v5->toInt() == 2);
+    assert(v6->toInt() == 3);
     delete v1;
     
-    assert(*v2 == 'b');
-    assert(*v3 == 'c');
-    assert(*v4 == 1);
-    assert(*v5 == 2);
-    assert(*v6 == 3);
+    assert(v2->toCStr()[0] == 'b');
+    assert(v3->toCStr()[0] == 'c');
+    assert(v4->toInt() == 1);
+    assert(v5->toInt() == 2);
+    assert(v6->toInt() == 3);
     delete v2;
     
-    assert(*v3 == 'c');
-    assert(*v4 == 1);
-    assert(*v5 == 2);
-    assert(*v6 == 3);
+    assert(v3->toCStr()[0] == 'c');
+    assert(v4->toInt() == 1);
+    assert(v5->toInt() == 2);
+    assert(v6->toInt() == 3);
     delete v3;
     
-    assert(*v4 == 1);
-    assert(*v5 == 2);
-    assert(*v6 == 3);
+    assert(v4->toInt() == 1);
+    assert(v5->toInt() == 2);
+    assert(v6->toInt() == 3);
     delete v4;
     
-    assert(*v5 == 2);
-    assert(*v6 == 3);
+    assert(v5->toInt() == 2);
+    assert(v6->toInt() == 3);
     delete v5;
     
-    assert(*v6 == 3);
+    assert(v6->toInt() == 3);
     delete v6;
     
     // Test deletion in random order
@@ -131,37 +131,37 @@ int main(int argc, char** argv)
     v5 = new lua::Value(state["table"]["two"]);
     v6 = new lua::Value(state["table"]["three"]);
     
-    assert(*v1 == 'a');
-    assert(*v2 == 'b');
-    assert(*v3 == 'c');
-    assert(*v4 == 1);
-    assert(*v5 == 2);
-    assert(*v6 == 3);
+    assert(v1->toCStr()[0] == 'a');
+    assert(v2->toCStr()[0] == 'b');
+    assert(v3->toCStr()[0] == 'c');
+    assert(v4->toInt() == 1);
+    assert(v5->toInt() == 2);
+    assert(v6->toInt() == 3);
     delete v6;
     
-    assert(*v1 == 'a');
-    assert(*v2 == 'b');
-    assert(*v3 == 'c');
-    assert(*v4 == 1);
-    assert(*v5 == 2);
+    assert(v1->toCStr()[0] == 'a');
+    assert(v2->toCStr()[0] == 'b');
+    assert(v3->toCStr()[0] == 'c');
+    assert(v4->toInt() == 1);
+    assert(v5->toInt() == 2);
     delete v3;
     
-    assert(*v1 == 'a');
-    assert(*v2 == 'b');
-    assert(*v4 == 1);
-    assert(*v5 == 2);
+    assert(v1->toCStr()[0] == 'a');
+    assert(v2->toCStr()[0] == 'b');
+    assert(v4->toInt() == 1);
+    assert(v5->toInt() == 2);
     delete v1;
     
-    assert(*v2 == 'b');
-    assert(*v4 == 1);
-    assert(*v5 == 2);
+    assert(v2->toCStr()[0] == 'b');
+    assert(v4->toInt() == 1);
+    assert(v5->toInt() == 2);
     delete v5;
     
-    assert(*v2 == 'b');
-    assert(*v4 == 1);
+    assert(v2->toCStr()[0] == 'b');
+    assert(v4->toInt() == 1);
     delete v4;
     
-    assert(*v2 == 'b');
+    assert(v2->toCStr()[0] == 'b');
     delete v2;
     
     // Test copying values
@@ -169,23 +169,23 @@ int main(int argc, char** argv)
     v2 = new lua::Value(*v1);
     v3 = new lua::Value(*v2);
     
-    assert(*v1 == 'a');
-    assert(*v2 == 'a');
-    assert(*v3 == 'a');
+    assert(v1->toCStr()[0] == 'a');
+    assert(v2->toCStr()[0] == 'a');
+    assert(v3->toCStr()[0] == 'a');
     delete v1;
     
-    assert(*v2 == 'a');
-    assert(*v3 == 'a');
+    assert(v2->toCStr()[0] == 'a');
+    assert(v3->toCStr()[0] == 'a');
     delete v2;
     
-    assert(*v3 == 'a');
+    assert(v3->toCStr()[0] == 'a');
     delete v3;
     
     // Test moving and copying values to functions
     {
-        auto constCopyValueFnc = [](const lua::Value&  value){ assert(value == 3); };
-        auto copyValueFnc =      [](const lua::Value&  value){ assert(value == 3); };
-        auto moveValueFnc =      [](      lua::Value&& value){ assert(value == 3); };
+        auto constCopyValueFnc = [](const lua::Value&  value){ assert(value.toInt() == 3); };
+        auto copyValueFnc =      [](const lua::Value&  value){ assert(value.toInt() == 3); };
+        auto moveValueFnc =      [](      lua::Value&& value){ assert(value.toInt() == 3); };
         
         constCopyValueFnc(state["table"]["three"]);
         copyValueFnc(state["table"]["three"]);

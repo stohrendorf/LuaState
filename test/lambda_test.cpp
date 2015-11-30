@@ -59,7 +59,7 @@ int main(int argc, char** argv)
     
     // Test normal function bind
     state.set("lambda", &getHello);
-    assert(strcmp(state["lambda"](), getHello()) == 0);
+    assert(strcmp(state["lambda"]().toCStr(), getHello()) == 0);
     
     // Test lambda captures
     bool flag = false;
@@ -69,37 +69,37 @@ int main(int argc, char** argv)
     
     // Test function and lambda arguments
     state.set("lambda", &subValues);
-    assert(state["lambda"](8, 5) == 3);
+    assert(state["lambda"](8, 5).toInt() == 3);
     
     state.set("lambda", [](int a, int b, int c, int d) -> int {
         return a + b + c + d;
     });
     state.doString("a = lambda(4, 8, 12, 14)");
-    assert(state["a"] == 38);
+    assert(state["a"].toInt() == 38);
     
     // Test direct passing to functions
     {
         lua::Value value = state["lambda"];
-        assert(value(state["a"], 1, 0, 1) == 40);
-        assert(value(1, state["a"], 0, 1) == 40);
-        assert(value(1, 0, state["a"], 1) == 40);
-        assert(value(1, 0, 1, state["a"]) == 40);
-        assert(value(state["a"], state["a"], state["a"], state["a"]) == 152);
+        assert(value(state["a"], 1, 0, 1).toInt() == 40);
+        assert(value(1, state["a"], 0, 1).toInt() == 40);
+        assert(value(1, 0, state["a"], 1).toInt() == 40);
+        assert(value(1, 0, 1, state["a"]).toInt() == 40);
+        assert(value(state["a"], state["a"], state["a"], state["a"]).toInt() == 152);
     }
     
-    assert(state["lambda"](state["a"], 1, 0, 1) == 40);
-    assert(state["lambda"](1, state["a"], 0, 1) == 40);
-    assert(state["lambda"](1, 0, state["a"], 1) == 40);
-    assert(state["lambda"](1, 0, 1, state["a"]) == 40);
-    assert(state["lambda"](state["a"], state["a"], state["a"], state["a"]) == 152);
+    assert(state["lambda"](state["a"], 1, 0, 1).toInt() == 40);
+    assert(state["lambda"](1, state["a"], 0, 1).toInt() == 40);
+    assert(state["lambda"](1, 0, state["a"], 1).toInt() == 40);
+    assert(state["lambda"](1, 0, 1, state["a"]).toInt() == 40);
+    assert(state["lambda"](state["a"], state["a"], state["a"], state["a"]).toInt() == 152);
     
     // Test when we provide less arguments than we need
     state.set("lambda", [&intValue](lua::Value a, lua::Value b, lua::Value c, lua::Value d) {
         intValue =
-        (a.is<lua::Number>() ? a : 0) +
-        (b.is<lua::Number>() ? b : 0) +
-        (c.is<lua::Number>() ? c : 0) +
-        (d.is<lua::Number>() ? d : 0);
+        (a.is<lua::Number>() ? a.toNumber() : 0) +
+        (b.is<lua::Number>() ? b.toNumber() : 0) +
+        (c.is<lua::Number>() ? c.toNumber() : 0) +
+        (d.is<lua::Number>() ? d.toNumber() : 0);
     });
     state.doString("lambda()");
     assert(intValue == 0);
@@ -173,18 +173,16 @@ int main(int argc, char** argv)
     assert(foo.a == 10);
     assert(foo.b == 20);
     
-    state.set("getFncs", []()
-              -> std::tuple<std::function<int()>, std::function<int()>, std::function<int()>> {
+    state.set("getFncs", []() {
                 // Error in gcc 4.8.1, we must again specify tuple parameters
-                  return std::make_tuple<std::function<int()>, std::function<int()>, std::function<int()>>(
+                  return std::make_tuple(
                       [] () -> int { return 100; },
                       [] () -> int { return 200; },
                       [] () -> int { return 300; }
                   );
               });
     int a, b, c;
-    state.set("setValues", [&a, &b, &c]()
-              -> std::tuple<std::function<void(int)>, std::function<void(int)>, std::function<void(int)>> {
+    state.set("setValues", [&a, &b, &c]() {
                   return std::make_tuple(
                       [&] (int value) { a = value; },
                       [&] (int value) { b = value; },
@@ -219,28 +217,28 @@ int main(int argc, char** argv)
     {
         state.doString("passToFunction = { a = 5, nested = { b = 4 } }");
         lua::Value luaValue = state["passToFunction"];
-        assert(luaValue["a"] == 5);
+        assert(luaValue["a"].toInt() == 5);
         
-        assert(luaValue["nested"]["b"] == 4);
-        assert(luaValue["a"] == 5);
+        assert(luaValue["nested"]["b"].toInt() == 4);
+        assert(luaValue["a"].toInt() == 5);
         
         auto fnc = [] (const lua::Value& value) {
-            assert(value["a"] == 5);
-            assert(value["nested"]["b"] == 4);
-            assert(value["a"] == 5);
+            assert(value["a"].toInt() == 5);
+            assert(value["nested"]["b"].toInt() == 4);
+            assert(value["a"].toInt() == 5);
             
             lua::Value nestedLuaValue = value["nested"];
-            assert(nestedLuaValue["b"] == 4);
+            assert(nestedLuaValue["b"].toInt() == 4);
         };
         fnc(luaValue);
         fnc(state["passToFunction"]);
         
-        assert(luaValue["a"] == 5);
-        assert(luaValue["nested"]["b"] == 4);
-        assert(luaValue["a"] == 5);
+        assert(luaValue["a"].toInt() == 5);
+        assert(luaValue["nested"]["b"].toInt() == 4);
+        assert(luaValue["a"].toInt() == 5);
         
         lua::Value nestedLuaValue = luaValue["nested"];
-        assert(nestedLuaValue["b"] == 4);
+        assert(nestedLuaValue["b"].toInt() == 4);
     }
     
 //    std::string hello = state["mystr"];

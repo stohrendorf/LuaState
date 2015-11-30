@@ -8,6 +8,10 @@
 
 #pragma once
 
+#include <lua.hpp>
+
+#include <cstdlib>
+
 namespace lua
 {
     /// Lua table type

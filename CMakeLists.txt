@@ -43,12 +43,7 @@ group_folder("include")
 set(INCLUDE_FILES ${SOURCE_GROUP})
 include_directories(include)
 
-if(LUA_INCLUDE_DIR)
-	include_directories(${LUA_INCLUDE_DIR})
-else(LUA_INCLUDE_DIR)
-	find_package(Lua)
-	include_directories(${LUA_INCLUDE_DIR})
-endif(LUA_INCLUDE_DIR)
+find_package(Lua)
 
 ################################################################################################
 ################################################################################################

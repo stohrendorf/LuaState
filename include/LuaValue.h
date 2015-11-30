@@ -8,12 +8,19 @@
 
 #pragma once
 
+#include "LuaException.h"
+#include "LuaStack.h"
+#include "LuaStackItem.h"
+
+#include <cassert>
+#include <memory>
+
 namespace lua {
     
     class Value;
     class State;
     class Ref;
-    template <typename ... Ts> class Return;
+    template<typename... Ts> class Return;
 
     //////////////////////////////////////////////////////////////////////////////////////////////
     /// This is class for:
@@ -25,9 +32,9 @@ namespace lua {
     {
         friend class State;
         friend class Ref;
-        template <typename ... Ts> friend class Return;
+        template <typename... Ts> friend class Return;
         
-        std::shared_ptr<detail::StackItem> _stack;
+        std::shared_ptr<detail::StackItem> m_stack = nullptr;
         
         /// Constructor for lua::State class. Whill get global in _G table with name
         ///
@@ -35,71 +42,93 @@ namespace lua {
         /// @param deallocQueue Queue for deletion values initialized from given luaState
         /// @param name         Key of global value
         Value(lua_State* luaState, detail::DeallocQueue* deallocQueue, const char* name)
-        : _stack(std::make_shared<detail::StackItem>(luaState, deallocQueue, stack::top(luaState), 1, 0))
+            : m_stack(std::make_shared<detail::StackItem>(luaState, deallocQueue, stack::top(luaState), 1, 0))
         {
-            stack::get_global(_stack->state, name);
+            stack::get_global(m_stack->state, name);
         }
         
-        template<typename ... Ts>
-        void callFunction(bool protectedCall, Ts... args) const {
+        template<typename T1, typename... Ts>
+        void callFunction(bool protectedCall, T1&& arg1, Ts&&... args) const
+        {
+            constexpr size_t argCount = 1 + sizeof...(args);
             
             // Function must be on top of stack
-            LUASTATE_ASSERT(stack::check<Callable>(_stack->state, stack::top(_stack->state)));
+            assert(traits::ValueTraits<lua::Callable>::check(m_stack->state, stack::top(m_stack->state)));
             
-            stack::push(_stack->state, args...);
-            
-            if (protectedCall) {
-                if (lua_pcall(_stack->state, sizeof...(Ts), LUA_MULTRET, 0))
-                    throw RuntimeError(_stack->state);
+            traits::ValueTraits<std::tuple<T1, Ts...>>::push(m_stack->state, std::forward<T1>(arg1), std::forward<Ts>(args)...);
+
+            if (protectedCall)
+            {
+                if (lua_pcall(m_stack->state, argCount, LUA_MULTRET, 0))
+                    throw RuntimeError(m_stack->state);
             }
             else
-                lua_call(_stack->state, sizeof...(Ts), LUA_MULTRET);
+            {
+                lua_call(m_stack->state, argCount, LUA_MULTRET);
+            }
         }
         
-        template<typename ... Ts>
-        Value executeFunction(bool protectedCall, Ts... args) const {
+        void callFunction(bool protectedCall) const
+        {
+
+            // Function must be on top of stack
+            assert(traits::ValueTraits<lua::Callable>::check(m_stack->state, stack::top(m_stack->state)));
+
+            if (protectedCall) {
+                if (lua_pcall(m_stack->state, 0, LUA_MULTRET, 0))
+                    throw RuntimeError(m_stack->state);
+            }
+            else
+                lua_call(m_stack->state, 0, LUA_MULTRET);
+        }
+
+        template<typename... Ts>
+        Value executeFunction(bool protectedCall, Ts&&... args) const
+        {
             
-            int stackTop = stack::top(_stack->state);
+            int stackTop = stack::top(m_stack->state);
             
             // We will duplicate Lua function value, because it will get poped from stack
-            lua_pushvalue(_stack->state, _stack->top + _stack->pushed - _stack->grouped);
+            lua_pushvalue(m_stack->state, m_stack->top + m_stack->pushed - m_stack->grouped);
             
-            callFunction(protectedCall, args...);
-            int returnedValues = stack::top(_stack->state) - stackTop;
+            callFunction(protectedCall, std::forward<Ts>(args)...);
+            int returnedValues = stack::top(m_stack->state) - stackTop;
             
-            LUASTATE_ASSERT(returnedValues >= 0);
+            assert(returnedValues >= 0);
             
-            return Value(std::make_shared<detail::StackItem>(_stack->state, _stack->deallocQueue, stackTop, returnedValues, returnedValues == 0 ? 0 : returnedValues - 1));
+            return Value(std::make_shared<detail::StackItem>(m_stack->state, m_stack->deallocQueue, stackTop, returnedValues, returnedValues == 0 ? 0 : returnedValues - 1));
         }
         
-        template<typename ... Ts>
-        Value&& executeFunction(bool protectedCall, Ts... args) {
+        template<typename... Ts>
+        Value&& executeFunction(bool protectedCall, Ts&&... args)
+        {
             
-            int stackTop = stack::top(_stack->state);
+            int stackTop = stack::top(m_stack->state);
             
             // we check if there are not pushed values before function
-            if (_stack->top + _stack->pushed < stackTop) {
+            if (m_stack->top + m_stack->pushed < stackTop)
+            {
                 
-                _stack->deallocQueue->push(detail::DeallocStackItem(_stack->top, _stack->pushed));
+                m_stack->deallocQueue->push(detail::DeallocStackItem(m_stack->top, m_stack->pushed));
 
-                lua_pushvalue(_stack->state, _stack->top + 1);
+                lua_pushvalue(m_stack->state, m_stack->top + 1);
                 
-                _stack->top = stackTop;
-                _stack->pushed = 1;
-                _stack->grouped = 0;
+                m_stack->top = stackTop;
+                m_stack->pushed = 1;
+                m_stack->grouped = 0;
                 
                 ++stackTop;
             }
             
             // StackItem top must same as top of current stack
-            LUASTATE_ASSERT(_stack->top + _stack->pushed == stack::top(_stack->state));
+            assert(m_stack->top + m_stack->pushed == stack::top(m_stack->state));
             
-            callFunction(protectedCall, args...);
+            callFunction(protectedCall, std::forward<Ts>(args)...);
 
-            _stack->grouped = stack::top(_stack->state) - stackTop;
-            _stack->pushed += _stack->grouped;
+            m_stack->grouped = stack::top(m_stack->state) - stackTop;
+            m_stack->pushed += m_stack->grouped;
 
-            LUASTATE_ASSERT(_stack->pushed >= 0);
+            assert(m_stack->pushed >= 0);
             
             return std::move(*this);
         }
@@ -107,14 +136,13 @@ namespace lua {
     public:
         
         /// Enable to initialize empty Value, so we can set it up later
-        Value() : _stack(nullptr) {
-        }
+        Value() = default;
 
         /// Constructor for returning values from functions and for creating lua::Ref instances
         ///
         /// @param stackItem Prepared stack item
         Value(std::shared_ptr<detail::StackItem>&& stackItem)
-        : _stack(stackItem)
+            : m_stack(std::move(stackItem))
         {
         }
         
@@ -122,75 +150,65 @@ namespace lua {
         ///
         /// @note This function doesn't check if current value is lua::Table. You must use is<lua::Table>() function if you want to be sure
         template<typename T>
-        Value operator[](T key) const {
-            stack::get(_stack->state, _stack->top + _stack->pushed - _stack->grouped, key);
-            return Value(std::make_shared<detail::StackItem>(_stack->state, _stack->deallocQueue, stack::top(_stack->state) - 1, 1, 0));
+        Value operator[](T&& key) const {
+            traits::ValueTraits<T>::get(m_stack->state, m_stack->top + m_stack->pushed - m_stack->grouped, std::forward<T>(key));
+            return Value(std::make_shared<detail::StackItem>(m_stack->state, m_stack->deallocQueue, stack::top(m_stack->state) - 1, 1, 0));
         }
-        
-#if __has_feature(cxx_reference_qualified_functions)
         
         /// While chaining [] operators we will call this function multiple times and can query nested tables.
         ///
         /// @note This function doesn't check if current value is lua::Table. You must use is<lua::Table>() function if you want to be sure
         template<typename T>
-        Value&& operator[](T key) && {
-            stack::get(_stack->state, _stack->top + _stack->pushed - _stack->grouped, key);
-            ++_stack->pushed;
-            
-            _stack->grouped = 0;
-            
+        Value&& operator[](T&& key) &&
+        {
+            traits::ValueTraits<T>::get(m_stack->state, m_stack->top + m_stack->pushed - m_stack->grouped, std::forward<T>(key));
+            ++m_stack->pushed;
+
+            m_stack->grouped = 0;
+
             return std::forward<Value>(*this);
         }
-        
-#endif
-        
+
         /// Call given value.
         ///
         /// @note This function doesn't check if current value is lua::Callable. You must use is<lua::Callable>() function if you want to be sure
-        template<typename ... Ts>
-        Value operator()(Ts... args) const {
-            return  executeFunction(false, args...);
+        template<typename... Ts>
+        Value operator()(Ts&&... args) const
+        {
+            return  executeFunction(false, std::forward<Ts>(args)...);
         }
         
         /// Protected call of given value.
         ///
         /// @note This function doesn't check if current value is lua::Callable. You must use is<lua::Callable>() function if you want to be sure
-        template<typename ... Ts>
-        Value call(Ts... args) const {
-            return executeFunction(true, args...);
+        template<typename... Ts>
+        Value call(Ts&&... args) const
+        {
+            return executeFunction(true, std::forward<Ts>(args)...);
         }
-        
-#if __has_feature(cxx_reference_qualified_functions)
         
         /// Call given value.
         ///
         /// @note This function doesn't check if current value is lua::Callable. You must use is<lua::Callable>() function if you want to be sure
-        template<typename ... Ts>
-        Value&& operator()(Ts... args) && {
-            return executeFunction(false, args...);
+        template<typename... Ts>
+        Value&& operator()(Ts&&... args) &&
+        {
+            return executeFunction(false, std::forward<Ts>(args)...);
         }
         
         /// Protected call of given value.
         ///
         /// @note This function doesn't check if current value is lua::Callable. You must use is<lua::Callable>() function if you want to be sure
-        template<typename ... Ts>
-        Value&& call(Ts... args) && {
-            return executeFunction(true, args...);
+        template<typename... Ts>
+        Value&& call(Ts&&... args) &&
+        {
+            return executeFunction(true, std::forward<Ts>(args)...);
         }
         
-#endif
-        
         template<typename T>
-        T to() const {
-            return std::forward<T>(stack::read<T>(_stack->state, _stack->top + _stack->pushed - _stack->grouped));
-        }
-        
-        /// Cast operator. Enables to pop values from stack and store it to variables
-        ///
-        /// @return Any value of type from LuaPrimitives.h
-        template<typename T>
-        operator T() const {
-            return to<T>();
+        T to() const
+        {
+            return traits::ValueTraits<T>::read(m_stack->state, m_stack->top + m_stack->pushed - m_stack->grouped);
         }
         
         /// Set values to table to the given key.
@@ -200,18 +218,19 @@ namespace lua {
         ///
         /// @note This function doesn't check if current value is lua::Table. You must use is<lua::Table>() function if you want to be sure
         template<typename K, typename T>
-        void set(K key, T value) const {
-            stack::push(_stack->state, key);
-            stack::push(_stack->state, std::forward<T>(value));
-            lua_settable(_stack->state, _stack->top + _stack->pushed - _stack->grouped);
+        void set(K&& key, T&& value) const {
+            traits::ValueTraits<K>::push(m_stack->state, std::forward<K>(key));
+            traits::ValueTraits<T>::push(m_stack->state, std::forward<T>(value));
+            lua_settable(m_stack->state, m_stack->top + m_stack->pushed - m_stack->grouped);
         }
 
         /// Check if queryied value is some type from LuaPrimitives.h file
         ///
         /// @return true if yes false if no
         template <typename T>
-        bool is() const {
-            return stack::check<T>(_stack->state, _stack->top + _stack->pushed - _stack->grouped);
+        bool is() const
+        {
+            return traits::ValueTraits<T>::check(m_stack->state, m_stack->top + m_stack->pushed - m_stack->grouped);
         }
         
         /// First check if lua::Value is type T and if yes stores it to value
@@ -220,19 +239,24 @@ namespace lua {
         ///
         /// @return true if value was given type and stored to value false if not
         template <typename T>
-        bool get(T& value) const {
-            if (is<T>() == false)
+        bool get(T& value) const
+        {
+            if (!is<T>())
+            {
                 return false;
-            else {
-                value = stack::read<T>(_stack->state, _stack->top + _stack->pushed - _stack->grouped);
+            }
+            else
+            {
+                value = traits::ValueTraits<T>::read(m_stack->state, m_stack->top + m_stack->pushed - m_stack->grouped);
                 return true;
             }
         }
             
         /// @returns Value position on stack
-        int getStackIndex() const {
-            assert(_stack->pushed > 0);
-            return _stack->top + 1;
+        int getStackIndex() const
+        {
+            assert(m_stack->pushed > 0);
+            return m_stack->top + 1;
         }
         
         //////////////////////////////////////////////////////////////////////////////////////////////
@@ -240,49 +264,53 @@ namespace lua {
 
         // to
         
-        const char* toCStr() const {
+        const char* toCStr() const
+        {
             return to<const char*>();
         }
         
-        std::string toString() const {
+        std::string toString() const
+        {
             return to<lua::String>();
         }
         
-        lua::Number toNumber() const {
+        lua::Number toNumber() const
+        {
             return to<lua::Number>();
-        }
-        
-        int toInt() const {
-            return to<int>();
-        }
-        
-        unsigned toUnsigned() const {
-            return to<unsigned>();
         }
         
         float toFloat() const {
             return to<float>();
         }
+
+        lua::Integer toInt() const
+        {
+            return to<lua::Integer>();
+        }
         
-        double toDouble() const {
-            return to<double>();
+        lua::Boolean toBool() const
+        {
+            return to<lua::Boolean>();
         }
 
         /// Will get pointer casted to given template type
         ///
         /// @return Pointer staticaly casted to given template type
         template <typename T>
-        T* toPtr() const {
+        T* toPtr() const
+        {
             return static_cast<T*>(Pointer(*this));
         }
         
         // get
         
-        bool getCStr(const char*& cstr) const {
+        bool getCStr(const char*& cstr) const
+        {
             return get<const char*>(cstr);
         }
         
-        bool getString(std::string& string) const {
+        bool getString(std::string& string) const
+        {
             lua::String cstr;
             bool success = get<lua::String>(cstr);
             
@@ -292,28 +320,19 @@ namespace lua {
             return success;
         }
         
-        bool getNumber(lua::Number number) const {
+        bool getNumber(lua::Number number) const
+        {
             return get<lua::Number>(number);
         }
         
-        bool getInt(int number) const {
-            return get<int>(number);
-        }
-        
-        bool getUnsigned(unsigned number) const {
-            return get<unsigned>(number);
-        }
-        
-        bool getFloat(float number) const {
-            return get<float>(number);
-        }
-        
-        bool getDouble(double number) const {
-            return get<double>(number);
+        bool getInt(lua::Integer number) const
+        {
+            return get<lua::Integer>(number);
         }
         
         template <typename T>
-        T* getPtr(T*& pointer) const {
+        T* getPtr(T*& pointer) const
+        {
             lua::Pointer cptr;
             bool success = get<lua::Pointer>(cptr);
             
@@ -327,178 +346,84 @@ namespace lua {
         // Conventional setting functions
         
         template<typename K>
-        void setCStr(K key, const char* value) const {
-            set<const char*>(key, value);
+        void setCStr(K&& key, lua::String value) const
+        {
+            set<const char*>(std::forward<K>(key), value);
         }
         
         template<typename K>
-        void setData(K key, const char* value, size_t length) const {
-            stack::push(_stack->state, key);
-            stack::push_str(_stack->state, value, length);
-            lua_settable(_stack->state, _stack->top + _stack->pushed - _stack->grouped);
+        void setData(K&& key, lua::String value, size_t length) const
+        {
+            traits::ValueTraits<K>::push(m_stack->state, std::forward<K>(key));
+            traits::ValueTraits<lua::String>::push(m_stack->state, value, length);
+            lua_settable(m_stack->state, m_stack->top + m_stack->pushed - m_stack->grouped);
         }
         
         template<typename K>
-        void setString(K key, const std::string& string) const {
-            stack::push(_stack->state, key);
-            stack::push_str(_stack->state, string.c_str(), string.length());
-            lua_settable(_stack->state, _stack->top + _stack->pushed - _stack->grouped);
+        void setString(K&& key, const std::string& string) const
+        {
+            traits::ValueTraits<K>::push(m_stack->state, std::forward<K>(key));
+            traits::ValueTraits<lua::String>::push(m_stack->state, string.c_str(), string.length());
+            lua_settable(m_stack->state, m_stack->top + m_stack->pushed - m_stack->grouped);
         }
         
-        size_t length() const {
-            return lua_rawlen(_stack->state, _stack->top + _stack->pushed - _stack->grouped);
+        size_t length() const
+        {
+            return lua_rawlen(m_stack->state, m_stack->top + m_stack->pushed - m_stack->grouped);
         }
 
         template<typename K>
-        void set(K key, const std::string& value) const {
-            setString<lua::String>(key, value);
+        void set(K&& key, std::string&& value) const
+        {
+            setString<lua::String>(std::forward<K>(key), std::forward<std::string>(value));
         }
         
         template<typename K>
-        void setNumber(K key, lua::Number number) const {
-            set<lua::Number>(key, number);
+        void setNumber(K&& key, lua::Number number) const
+        {
+            set<lua::Number>(std::forward<K>(key), number);
         }
         
         template<typename K>
-        void setInt(K key, int number) const {
-            set<int>(key, number);
+        void setInt(K&& key, int number) const
+        {
+            set<int>(std::forward<K>(key), number);
         }
         
         template<typename K>
-        void setUnsigned(K key, unsigned number) const {
-            set<unsigned>(key, number);
+        void setFloat(K&& key, float number) const
+        {
+            set<float>(std::forward<K>(key), number);
         }
         
         template<typename K>
-        void setFloat(K key, float number) const {
-            set<float>(key, number);
-        }
-        
-        template<typename K>
-        void setDouble(K key, double number) const {
-            set<double>(key, number);
+        void setDouble(K&& key, double number) const
+        {
+            set<double>(std::forward<K>(key), number);
         }
         
     };
-    
-    // compare operators
-    //////////////////////////////////////////////////////////////////////////////////////////////
-    
-    template <typename T>
-    inline bool operator==(const Value &stateValue, const T& value) {
-        return T(stateValue) == value;
-    }
-    template <typename T>
-    inline bool operator==(const T& value, const Value &stateValue) {
-        return T(stateValue) == value;
-    }
-            
-    template <typename T>
-    inline bool operator!=(const Value &stateValue, const T& value) {
-        return T(stateValue) != value;
-    }
-    template <typename T>
-    inline bool operator!=(const T& value, const Value &stateValue) {
-        return T(stateValue) != value;
-    }
-    
-    template <typename T>
-    inline bool operator<(const Value &stateValue, const T& value) {
-        return T(stateValue) < value;
-    }
-    template <typename T>
-    inline bool operator<(const T& value, const Value &stateValue) {
-        return T(stateValue) < value;
-    }
-            
-    template <typename T>
-    inline bool operator<=(const Value &stateValue, const T& value) {
-        return T(stateValue) <= value;
-    }
-    template <typename T>
-    inline bool operator<=(const T& value, const Value &stateValue) {
-        return T(stateValue) <= value;
-    }
-            
-    template <typename T>
-    inline bool operator>(const Value &stateValue, const T& value) {
-        return T(stateValue) > value;
-    }
-    template <typename T>
-    inline bool operator>(const T& value, const Value &stateValue) {
-        return T(stateValue) > value;
-    }
-    
-    template <typename T>
-    inline bool operator>=(const Value &stateValue, const T& value) {
-        return T(stateValue) >= value;
-    }
-    template <typename T>
-    inline bool operator>=(const T& value, const Value &stateValue) {
-        return T(stateValue) >= value;
-    }
-    
-    
-    
-    
-    inline bool operator==(const Value &stateValue, const std::string& value) {
-        return lua::String(stateValue) == value;
-    }
-    inline bool operator==(const std::string& value, const Value &stateValue) {
-        return lua::String(stateValue) == value;
-    }
-    
-    inline bool operator!=(const Value &stateValue, const std::string& value) {
-        return lua::String(stateValue) != value;
-    }
-    inline bool operator!=(const std::string& value, const Value &stateValue) {
-        return lua::String(stateValue) != value;
-    }
-    
-    inline bool operator<(const Value &stateValue, const std::string& value) {
-        return lua::String(stateValue) < value;
-    }
-    inline bool operator<(const std::string& value, const Value &stateValue) {
-        return lua::String(stateValue) < value;
-    }
-    
-    inline bool operator<=(const Value &stateValue, const std::string& value) {
-        return lua::String(stateValue) <= value;
-    }
-    inline bool operator<=(const std::string& value, const Value &stateValue) {
-        return lua::String(stateValue) <= value;
-    }
-    
-    inline bool operator>(const Value &stateValue, const std::string& value) {
-        return lua::String(stateValue) > value;
-    }
-    inline bool operator>(const std::string& value, const Value &stateValue) {
-        return lua::String(stateValue) > value;
-    }
-    
-    inline bool operator>=(const Value &stateValue, const std::string& value) {
-        return lua::String(stateValue) >= value;
-    }
-    inline bool operator>=(const std::string& value, const Value &stateValue) {
-        return lua::String(stateValue) >= value;
+
+    template<>
+    inline lua::Value Value::to() const
+    {
+        return *this;
     }
 
-    
-    namespace stack {
-        
+    namespace traits {
         template<>
-        inline bool check<lua::Value>(lua_State*, int)
+        struct ValueTraits<lua::Value>
         {
-            return true;
-        }
-        
-        /// Values direct forwarding
-        template<>
-        inline int push(lua_State* luaState, lua::Value value) {
-            lua_pushvalue(luaState, value.getStackIndex());
-            return 1;
-        }
-        
+            static inline int push(lua_State* luaState, lua::Value&& value) {
+                lua_pushvalue(luaState, value.getStackIndex());
+                return 1;
+            }
+
+            static inline int push(lua_State* luaState, const lua::Value& value) {
+                lua_pushvalue(luaState, value.getStackIndex());
+                return 1;
+            }
+        };
     }
 }
 

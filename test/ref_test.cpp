@@ -17,14 +17,14 @@ int main(int argc, char** argv)
     lua::Ref ref = state["table"]["a"];
     lua::Ref tabRef = state["table"];
     
-    assert(ref.unref() == 'a');
-    assert(tabRef.unref()["a"] == 'a');
+    assert(ref.unref().toCStr()[0] == 'a');
+    assert(tabRef.unref()["a"].toCStr()[0] == 'a');
     
     lua::Ref copyRef = ref;
-    assert(copyRef.unref() == 'a');
+    assert(copyRef.unref().toCStr()[0] == 'a');
     
     copyRef = tabRef;
-    assert(copyRef.unref()["a"] == 'a');
+    assert(copyRef.unref()["a"].toCStr()[0] == 'a');
         
     state.checkMemLeaks();
     return 0;

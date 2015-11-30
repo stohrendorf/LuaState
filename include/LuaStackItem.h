@@ -8,21 +8,30 @@
 
 #pragma once
 
+#include <lua.hpp>
+
 #include <queue>
 
 namespace lua { namespace detail {
         
     //////////////////////////////////////////////////////////////////////////////////////////////
-    struct DeallocStackItem {
+    struct DeallocStackItem
+    {
         int stackCap;
         int numElements;
         
-        DeallocStackItem(int stackTop, int numElements) : stackCap(stackTop + numElements), numElements(numElements) {}
+        DeallocStackItem(int stackTop, int numElements)
+            : stackCap(stackTop + numElements)
+            , numElements(numElements)
+        {
+        }
     };
     
     //////////////////////////////////////////////////////////////////////////////////////////////
-    struct DeallocStackComparison {
-        bool operator() (const DeallocStackItem& lhs, const DeallocStackItem& rhs) const {
+    struct DeallocStackComparison
+    {
+        bool operator() (const DeallocStackItem& lhs, const DeallocStackItem& rhs) const
+        {
             return lhs.stackCap < rhs.stackCap;
         }
     };
@@ -33,8 +42,8 @@ namespace lua { namespace detail {
     //////////////////////////////////////////////////////////////////////////////////////////////
     struct StackItem {
         
-        lua_State* state;
-        detail::DeallocQueue* deallocQueue;
+        lua_State* state = nullptr;
+        detail::DeallocQueue* deallocQueue = nullptr;
         
         /// Indicates number of pushed values to stack on lua::Value when created
         int top;
@@ -45,9 +54,7 @@ namespace lua { namespace detail {
         /// Indicates multi returned values, because the we want first returned value and not the last
         int grouped;
         
-        StackItem() : state(nullptr), deallocQueue(nullptr)
-        {
-        }
+        StackItem() = default;
         
         StackItem(lua_State* luaState, detail::DeallocQueue* deallocQueue, int stackTop, int pushedValues, int groupedValues)
         : state(luaState)

@@ -10,19 +10,6 @@
 
 #pragma once
 
-// Compatibility with non-clang compilers.
-#ifndef __has_feature
-#   define __has_feature(x) 0
-#endif
-
-#ifdef LUASTATE_DEBUG_MODE
-#   define LUASTATE_DEBUG_LOG(format, ...) printf(format "\n", ## __VA_ARGS__)
-#   define LUASTATE_ASSERT(condition)      assert(condition)
-#else
-#   define LUASTATE_DEBUG_LOG(format, ...)
-#   define LUASTATE_ASSERT(condition)
-#endif
-
 #include <cassert>
 #include <string>
 #include <functional>
@@ -72,14 +59,6 @@ namespace lua {
         }
         
         lua::Value executeLoadedFunction(int index) const {
-//            bool executed;
-//            try {
-//                executed = lua_pcall(_luaState, 0, LUA_MULTRET, 0) == 0;
-//            } catch (lua::TypeMismatchError ex) {
-//                throw ex;
-//            }
-//            
-//            if (!executed)
             if (lua_pcall(_luaState, 0, LUA_MULTRET, 0))
                 throw RuntimeError(_luaState);
             
@@ -145,8 +124,8 @@ namespace lua {
         /// @param key      Stores value to _G[key]
         /// @param value    Value witch will be stored to _G[key]
         template<typename T>
-        void set(lua::String key, T value) const {
-            stack::push(_luaState, std::forward<T>(value));
+        void set(lua::String key, T&& value) const {
+            traits::ValueTraits<T>::push(_luaState, std::forward<T>(value));
             lua_setglobal(_luaState, key);
         }
         
@@ -190,16 +169,16 @@ namespace lua {
             // Check if there are any values from stack, should be zero
             int count = stack::top(_luaState);
             if (count != 0) {
-                LUASTATE_DEBUG_LOG("There are %d elements in stack:", count);
+                std::cout << "There are " << count << " elements in stack:";
                 stack::dump(_luaState);
                 noLeaks = false;
             }
             
             // Dealloc queue should be empty
             if (!_deallocQueue->empty()) {
-                LUASTATE_DEBUG_LOG("Deallocation queue has %lu elements:", _deallocQueue->size());
+                std::cout << "Deallocation queue has " << _deallocQueue->size() << " elements:";
                 while (!_deallocQueue->empty()) {
-                    LUASTATE_DEBUG_LOG("[stackCap = %d, numElements = %d]", _deallocQueue->top().stackCap, _deallocQueue->top().numElements);
+                    std::cout << "[stackCap = " << _deallocQueue->top().stackCap << ", numElements = " << _deallocQueue->top().numElements << "]";
                     _deallocQueue->pop();
                 }
                 noLeaks = false;
@@ -221,12 +200,12 @@ namespace lua {
         //////////////////////////////////////////////////////////////////////////////////////////////
         // Conventional setting functions
         
-        void setCStr(lua::String key, const char* value) const {
-            set<const char*>(key, value);
+        void setCStr(lua::String key, lua::String&& value) const {
+            set<const char*>(key, std::forward<const char*>(value));
         }
         
-        void setData(lua::String key, const char* value, size_t length) const {
-            stack::push_str(_luaState, value, length);
+        void setData(lua::String key, lua::String value, size_t length) const {
+            traits::ValueTraits<lua::String>::push(_luaState, value, length);
             lua_setglobal(_luaState, key);
         }
         
@@ -234,28 +213,16 @@ namespace lua {
             setData(key, string.c_str(), string.length());
         }
         
-        void set(lua::String key, const std::string& value) const {
-            setString(key, value);
+        void set(lua::String key, std::string&& value) const {
+            setString(key, std::forward<std::string>(value));
         }
         
-        void setNumber(lua::String key, lua::Number number) const {
-            set<lua::Number>(key, number);
+        void setNumber(lua::String key, lua::Number&& number) const {
+            set<lua::Number>(key, std::forward<lua::Number>(number));
         }
         
-        void setInt(lua::String key, int number) const {
-            set<int>(key, number);
-        }
-        
-        void setUnsigned(lua::String key, unsigned number) const {
-            set<unsigned>(key, number);
-        }
-        
-        void setFloat(lua::String key, float number) const {
-            set<float>(key, number);
-        }
-        
-        void setDouble(lua::String key, double number) const {
-            set<double>(key, number);
+        void setInt(lua::String key, lua::Integer&& number) const {
+            set<lua::Integer>(key, std::forward<lua::Integer>(number));
         }
     };
 }
