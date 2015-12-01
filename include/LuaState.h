@@ -62,7 +62,7 @@ namespace lua {
             if (lua_pcall(_luaState, 0, LUA_MULTRET, 0))
                 throw RuntimeError(_luaState);
             
-            int pushedValues = stack::top(_luaState) - index;
+            int pushedValues = lua_gettop(_luaState) - index;
             return lua::Value(std::make_shared<detail::StackItem>(_luaState, _deallocQueue, index, pushedValues, pushedValues > 0 ? pushedValues - 1 : 0));
         }
         
@@ -136,7 +136,7 @@ namespace lua {
         ///
         /// @param filePath File path indicating which file will be executed
         lua::Value doFile(const std::string& filePath) const {
-            int stackTop = stack::top(_luaState);
+            int stackTop = lua_gettop(_luaState);
             
             if (luaL_loadfile(_luaState, filePath.c_str()))
                 throw LoadError(_luaState);
@@ -151,7 +151,7 @@ namespace lua {
         ///
         /// @param string   Command which will be executed
         lua::Value doString(const std::string& string) const {
-            int stackTop = stack::top(_luaState);
+            int stackTop = lua_gettop(_luaState);
             
             if (luaL_loadstring(_luaState, string.c_str()))
                 throw LoadError(_luaState);
@@ -167,7 +167,7 @@ namespace lua {
             bool noLeaks = true;
             
             // Check if there are any values from stack, should be zero
-            int count = stack::top(_luaState);
+            int count = lua_gettop(_luaState);
             if (count != 0) {
                 std::cout << "There are " << count << " elements in stack:";
                 stack::dump(_luaState);

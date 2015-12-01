@@ -10,7 +10,7 @@
 
 #include <lua.hpp>
 
-#include <cstdlib>
+#include <type_traits>
 
 namespace lua
 {
@@ -20,15 +20,17 @@ namespace lua
     /// Any Lua function, C function, or table/userdata with __call metamethod
     struct Callable {};
     
-    typedef lua_Number Number;
+    using Number = lua_Number;
     
-    typedef lua_Integer Integer;
+    using Integer = lua_Integer;
+
+    using Unsigned = std::make_unsigned<lua_Integer>::type;
+
+    using Boolean = bool;
     
-    typedef bool Boolean;
+    using String = const char*;
     
-    typedef const char* String;
+    using Nil = std::nullptr_t;
     
-    typedef std::nullptr_t Nil;
-    
-    typedef void* Pointer;
+    using Pointer = void*;
 }

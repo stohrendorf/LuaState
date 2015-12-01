@@ -9,6 +9,7 @@
 #pragma once
 
 #include "LuaValue.h"
+#include "Traits.h"
 
 #include <lua.hpp>
 
@@ -22,7 +23,8 @@ namespace lua {
         
         //////////////////////////////////////////////////////////////////////////////////////////////
         template<std::size_t I, typename... Ts>
-        class Pop {
+        class Pop final
+        {
             
             friend class lua::Value;
             
@@ -43,11 +45,11 @@ namespace lua {
             static inline std::tuple<Ts...> unpackMultiValues(::lua_State* luaState,
                                                               detail::DeallocQueue* deallocQueue,
                                                               int stackTop,
-                                                              traits::indexes<Is...>)
+                                                              traits::Indices<Is...>)
             {
                 return std::make_tuple(readValue<Ts>(luaState, deallocQueue, Is + stackTop)...);
             }
-            
+
         public:
             
             /// Function get multiple return values from lua stack
@@ -55,10 +57,10 @@ namespace lua {
                                                            detail::DeallocQueue* deallocQueue,
                                                            int stackTop)
             {
-                return unpackMultiValues(luaState, deallocQueue, stackTop, typename traits::indexes_builder<I>::index());
+                return unpackMultiValues(luaState, deallocQueue, stackTop, typename traits::MakeIndices<I>::Type());
             }
         };
-        
+
         /// Function expects that number of elements in tuple and number of pushed values in stack are same. Applications takes care of this requirement by popping overlapping values before calling this function
         template<typename ... Ts>
         inline std::tuple<Ts...> get_and_pop(::lua_State* luaState,
@@ -67,41 +69,51 @@ namespace lua {
         {
             return Pop<sizeof...(Ts), Ts...>::getMultiValues(luaState, deallocQueue, stackTop);
         }
-        
-        
+
+        template<>
+        inline std::tuple<> get_and_pop<>(::lua_State*,
+                                          detail::DeallocQueue*,
+                                          int)
+        {
+            return {};
+        }
     }
     
+
     //////////////////////////////////////////////////////////////////////////////////////////////
     /// Class for automaticly cas lua::Function instance to multiple return values with lua::tie
 	template <typename ... Ts>
-	class Return
+    class Return final
     {
         /// Return values
-	    std::tuple<Ts&&...> _tuple;
+        std::tuple<Ts&...> m_tuple;
         
 	public:
         
         /// Constructs class with given arguments
         ///
         /// @param args    Return values
-	    Return(Ts&&... args)
-        : _tuple(args...) {}
+        explicit Return(Ts&... args)
+            : m_tuple(args...)
+        {
+        }
         
         /// Operator sets values to std::tuple
         ///
         /// @param function     Function being called
-	    void operator= (const Value& value) {
+        void operator=(const Value& value)
+        {
             
             int requiredValues = std::min<int>(sizeof...(Ts), value.m_stack->pushed);
             
             // When there are more returned values than variables in tuple, we will clear values that are not needed
             if (requiredValues < (value.m_stack->grouped + 1)) {
                 
-                int currentStackTop = stack::top(value.m_stack->state);
+                int currentStackTop = lua_gettop(value.m_stack->state);
                 
                 // We will check if we haven't pushed some other new lua::Value to stack
                 if (value.m_stack->top + value.m_stack->pushed == currentStackTop)
-                    stack::settop(value.m_stack->state, value.m_stack->top + requiredValues);
+                    lua_settop(value.m_stack->state, value.m_stack->top + requiredValues);
                 else
                     value.m_stack->deallocQueue->push(detail::DeallocStackItem(value.m_stack->top, value.m_stack->pushed));
             }
@@ -109,14 +121,15 @@ namespace lua {
             // We will take pushed values and distribute them to returned lua::Values
             value.m_stack->pushed = 0;
             
-            _tuple = stack::get_and_pop<typename std::remove_reference<Ts>::type...>(value.m_stack->state, value.m_stack->deallocQueue, value.m_stack->top + 1);
+            m_tuple = stack::get_and_pop<traits::RemoveCVR<Ts>...>(value.m_stack->state, value.m_stack->deallocQueue, value.m_stack->top + 1);
 	    }
         
 	};
     
     /// Use this function when you want to retrieve multiple return values from lua::Function
     template <typename ... Ts>
-    Return<Ts&&...> tie(Ts&&... args) {
-        return Return<Ts&&...>(args...);
+    Return<Ts&...> tie(Ts&... args)
+    {
+        return Return<Ts&...>(args...);
     }
 }

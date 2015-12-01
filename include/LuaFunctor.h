@@ -10,6 +10,7 @@
 #pragma once
 
 #include "LuaState.h"
+#include "Traits.h"
 
 #include <type_traits>
 
@@ -19,7 +20,20 @@ namespace lua {
     /// Base functor class with call function. It is used for registering lamdas, or regular functions
     struct BaseFunctor
     {
-        BaseFunctor() = default;
+        template<typename Ret, typename... Args, size_t... Indexes >
+        static Ret callHelper(std::function<Ret(Args...)> func, traits::IndexTuple<Indexes...>, std::tuple<Args...>&& args)
+        {
+            return func( std::forward<Args>(std::get<Indexes>(args))... );
+        }
+
+        template<typename Ret, typename... Args>
+        static Ret call(std::function<Ret(Args...)> pf, std::tuple<Args...>&& tup)
+        {
+            return callHelper(pf, typename traits::MakeIndexTuple<Args...>::Type(), std::forward<std::tuple<Args...>>(tup));
+        }
+
+
+        explicit BaseFunctor() = default;
         
         virtual ~BaseFunctor() noexcept = default;
         
@@ -29,8 +43,8 @@ namespace lua {
         inline void prepareFunctionCall(lua_State* luaState, int requiredValues) {
             
             // First item is our pushed userdata
-            if (stack::top(luaState) > requiredValues + 1) {
-                stack::settop(luaState, requiredValues + 1);
+            if (lua_gettop(luaState) > requiredValues + 1) {
+                lua_settop(luaState, requiredValues + 1);
             }
         }
         
@@ -43,11 +57,12 @@ namespace lua {
     //////////////////////////////////////////////////////////////////////////////////////////////
     /// Functor with return values
     template<typename Ret, typename ... Args>
-    struct Functor : public BaseFunctor {
+    struct Functor : public BaseFunctor
+    {
         std::function<Ret(Args...)> function;
         
         /// Constructor creates functor to be pushed to Lua interpret
-        Functor(std::function<Ret(Args...)> function)
+        explicit Functor(std::function<Ret(Args...)> function)
             : BaseFunctor()
             , function(function)
         {
@@ -58,8 +73,9 @@ namespace lua {
         /// @note When we call function from Lua to C, they have their own stack, where in the first position is our binded userdata and next position are pushed arguments
         ///
         /// @param luaState     Pointer of Lua state
-        int call(lua_State* luaState) override {
-            Ret value = traits::call(function, stack::get_and_pop<Args...>(luaState, nullptr, 2));
+        int call(lua_State* luaState) override
+        {
+            Ret value = BaseFunctor::call(function, stack::get_and_pop<Args...>(luaState, nullptr, 2));
             return traits::ValueTraits<Ret>::push(luaState, std::forward<Ret>(value));
         }
     };
@@ -67,11 +83,12 @@ namespace lua {
     //////////////////////////////////////////////////////////////////////////////////////////////
     /// Functor with no return values
     template <typename ... Args>
-    struct Functor<void, Args...> : public BaseFunctor {
+    struct Functor<void, Args...> : public BaseFunctor
+    {
         std::function<void(Args...)> function;
         
         /// Constructor creates functor to be pushed to Lua interpret
-        Functor(std::function<void(Args...)> function)
+        explicit Functor(std::function<void(Args...)> function)
             : BaseFunctor()
             , function(function)
         {
@@ -82,8 +99,9 @@ namespace lua {
         /// @note When we call function from Lua to C, they have their own stack, where in the first position is our binded userdata and next position are pushed arguments
         ///
         /// @param luaState     Pointer of Lua state
-        int call(lua_State* luaState) override {
-            traits::call(function, stack::get_and_pop<Args...>(luaState, nullptr, 2));
+        int call(lua_State* luaState) override
+        {
+            BaseFunctor::call(function, stack::get_and_pop<Args...>(luaState, nullptr, 2));
             return 0;
         }
     };
@@ -94,7 +112,7 @@ namespace lua {
         struct ValueTraits<std::function<Ret(Args...)>>
         {
             static inline int push(lua_State* luaState, std::function<Ret(Args...)> function) {
-                BaseFunctor** udata = (BaseFunctor **)lua_newuserdata(luaState, sizeof(BaseFunctor *));
+                BaseFunctor** udata{ static_cast<BaseFunctor**>( lua_newuserdata(luaState, sizeof(BaseFunctor *)) ) };
                 *udata = new Functor<Ret, Args...>(function);
 
                 luaL_getmetatable(luaState, "luaL_Functor");

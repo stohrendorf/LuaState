@@ -13,11 +13,11 @@
 namespace lua {
     
     /// Reference to Lua value. Can be created from any lua::Value
-    class Ref
+    class Ref final
     {
         /// Pointer of Lua state
-        lua_State* m_luaState;
-        detail::DeallocQueue* m_deallocQueue;
+        lua_State* m_luaState = nullptr;
+        detail::DeallocQueue* m_deallocQueue = nullptr;
         
         /// Key of referenced value in LUA_REGISTRYINDEX
         int m_refKey;
@@ -29,15 +29,15 @@ namespace lua {
         
     public:
         
-        Ref() : m_luaState(nullptr) {}
+        explicit Ref() = default;
         
         // Copy and move constructors just use operator functions
-        Ref(const Value& value)
+        explicit Ref(const Value& value)
         {
             operator=(value);
         }
 
-        Ref(Value&& value)
+        explicit Ref(Value&& value)
         {
             operator=(std::forward<Value>(value));
         }
@@ -81,7 +81,7 @@ namespace lua {
         Value unref() const
         {
             lua_rawgeti(m_luaState, LUA_REGISTRYINDEX, m_refKey);
-            return Value(std::make_shared<detail::StackItem>(m_luaState, m_deallocQueue, stack::top(m_luaState) - 1, 1, 0));
+            return Value(std::make_shared<detail::StackItem>(m_luaState, m_deallocQueue, lua_gettop(m_luaState) - 1, 1, 0));
         }
         
         bool isInitialized() const

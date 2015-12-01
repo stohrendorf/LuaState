@@ -9,6 +9,7 @@
 #pragma once
 
 #include "LuaException.h"
+#include "LuaPrimitives.h"
 #include "LuaStack.h"
 #include "LuaStackItem.h"
 
@@ -42,9 +43,9 @@ namespace lua {
         /// @param deallocQueue Queue for deletion values initialized from given luaState
         /// @param name         Key of global value
         Value(lua_State* luaState, detail::DeallocQueue* deallocQueue, const char* name)
-            : m_stack(std::make_shared<detail::StackItem>(luaState, deallocQueue, stack::top(luaState), 1, 0))
+            : m_stack(std::make_shared<detail::StackItem>(luaState, deallocQueue, lua_gettop(luaState), 1, 0))
         {
-            stack::get_global(m_stack->state, name);
+            lua_getglobal(m_stack->state, name);
         }
         
         template<typename T1, typename... Ts>
@@ -53,7 +54,7 @@ namespace lua {
             constexpr size_t argCount = 1 + sizeof...(args);
             
             // Function must be on top of stack
-            assert(traits::ValueTraits<lua::Callable>::check(m_stack->state, stack::top(m_stack->state)));
+            assert(traits::ValueTraits<lua::Callable>::isCompatible(m_stack->state, lua_gettop(m_stack->state)));
             
             traits::ValueTraits<std::tuple<T1, Ts...>>::push(m_stack->state, std::forward<T1>(arg1), std::forward<Ts>(args)...);
 
@@ -72,9 +73,10 @@ namespace lua {
         {
 
             // Function must be on top of stack
-            assert(traits::ValueTraits<lua::Callable>::check(m_stack->state, stack::top(m_stack->state)));
+            assert(traits::ValueTraits<lua::Callable>::isCompatible(m_stack->state, lua_gettop(m_stack->state)));
 
-            if (protectedCall) {
+            if (protectedCall)
+            {
                 if (lua_pcall(m_stack->state, 0, LUA_MULTRET, 0))
                     throw RuntimeError(m_stack->state);
             }
@@ -86,13 +88,13 @@ namespace lua {
         Value executeFunction(bool protectedCall, Ts&&... args) const
         {
             
-            int stackTop = stack::top(m_stack->state);
+            int stackTop = lua_gettop(m_stack->state);
             
             // We will duplicate Lua function value, because it will get poped from stack
             lua_pushvalue(m_stack->state, m_stack->top + m_stack->pushed - m_stack->grouped);
             
             callFunction(protectedCall, std::forward<Ts>(args)...);
-            int returnedValues = stack::top(m_stack->state) - stackTop;
+            int returnedValues = lua_gettop(m_stack->state) - stackTop;
             
             assert(returnedValues >= 0);
             
@@ -103,7 +105,7 @@ namespace lua {
         Value&& executeFunction(bool protectedCall, Ts&&... args)
         {
             
-            int stackTop = stack::top(m_stack->state);
+            int stackTop = lua_gettop(m_stack->state);
             
             // we check if there are not pushed values before function
             if (m_stack->top + m_stack->pushed < stackTop)
@@ -121,11 +123,11 @@ namespace lua {
             }
             
             // StackItem top must same as top of current stack
-            assert(m_stack->top + m_stack->pushed == stack::top(m_stack->state));
+            assert(m_stack->top + m_stack->pushed == lua_gettop(m_stack->state));
             
             callFunction(protectedCall, std::forward<Ts>(args)...);
 
-            m_stack->grouped = stack::top(m_stack->state) - stackTop;
+            m_stack->grouped = lua_gettop(m_stack->state) - stackTop;
             m_stack->pushed += m_stack->grouped;
 
             assert(m_stack->pushed >= 0);
@@ -152,7 +154,7 @@ namespace lua {
         template<typename T>
         Value operator[](T&& key) const {
             traits::ValueTraits<T>::get(m_stack->state, m_stack->top + m_stack->pushed - m_stack->grouped, std::forward<T>(key));
-            return Value(std::make_shared<detail::StackItem>(m_stack->state, m_stack->deallocQueue, stack::top(m_stack->state) - 1, 1, 0));
+            return Value(std::make_shared<detail::StackItem>(m_stack->state, m_stack->deallocQueue, lua_gettop(m_stack->state) - 1, 1, 0));
         }
         
         /// While chaining [] operators we will call this function multiple times and can query nested tables.
@@ -230,7 +232,7 @@ namespace lua {
         template <typename T>
         bool is() const
         {
-            return traits::ValueTraits<T>::check(m_stack->state, m_stack->top + m_stack->pushed - m_stack->grouped);
+            return traits::ValueTraits<T>::isCompatible(m_stack->state, m_stack->top + m_stack->pushed - m_stack->grouped);
         }
         
         /// First check if lua::Value is type T and if yes stores it to value
@@ -279,7 +281,8 @@ namespace lua {
             return to<lua::Number>();
         }
         
-        float toFloat() const {
+        float toFloat() const
+        {
             return to<float>();
         }
 
@@ -288,6 +291,11 @@ namespace lua {
             return to<lua::Integer>();
         }
         
+        lua::Unsigned toUInt() const
+        {
+            return to<lua::Unsigned>();
+        }
+
         lua::Boolean toBool() const
         {
             return to<lua::Boolean>();

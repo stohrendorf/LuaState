@@ -8,7 +8,7 @@
 
 #pragma once
 
-#include <lua.hpp>
+#include "LuaStack.h"
 
 #include <queue>
 
@@ -71,7 +71,7 @@ namespace lua { namespace detail {
             if (deallocQueue != nullptr) {
                 
                 // Check if we dont try to release same values twice
-                int currentStackTop = stack::top(state);
+                int currentStackTop = lua_gettop(state);
                 if (currentStackTop < pushed + top) {
                     return;
                 }
@@ -84,7 +84,7 @@ namespace lua { namespace detail {
                         top -= deallocQueue->top().numElements;
                         deallocQueue->pop();
                     }
-                    stack::settop(state, top);
+                    lua_settop(state, top);
                 }
                 // If yes we can't pop values, we must pop it after deletion of newly created lua::Value
                 // We will put this deallocation to our priority queue, so it will be deleted as soon as possible
