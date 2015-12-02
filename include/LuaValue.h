@@ -20,7 +20,7 @@ namespace lua {
     
     class Value;
     class State;
-    class Ref;
+    class ValueReference;
     template<typename... Ts> class Return;
 
     //////////////////////////////////////////////////////////////////////////////////////////////
@@ -32,7 +32,7 @@ namespace lua {
     class Value
     {
         friend class State;
-        friend class Ref;
+        friend class ValueReference;
         template <typename... Ts> friend class Return;
         
         std::shared_ptr<detail::StackItem> m_stack = nullptr;
@@ -48,15 +48,15 @@ namespace lua {
             lua_getglobal(m_stack->state, name);
         }
         
-        template<typename T1, typename... Ts>
-        void callFunction(bool protectedCall, T1&& arg1, Ts&&... args) const
+        template<typename... Ts>
+        void callFunction(bool protectedCall, Ts&&... args) const
         {
             constexpr size_t argCount = 1 + sizeof...(args);
             
             // Function must be on top of stack
             assert(traits::ValueTraits<lua::Callable>::isCompatible(m_stack->state, lua_gettop(m_stack->state)));
             
-            traits::ValueTraits<std::tuple<T1, Ts...>>::push(m_stack->state, std::forward<T1>(arg1), std::forward<Ts>(args)...);
+            traits::ValueTraits<std::tuple<Ts...>>::push(m_stack->state, std::forward<Ts>(args)...);
 
             if (protectedCall)
             {
@@ -69,21 +69,6 @@ namespace lua {
             }
         }
         
-        void callFunction(bool protectedCall) const
-        {
-
-            // Function must be on top of stack
-            assert(traits::ValueTraits<lua::Callable>::isCompatible(m_stack->state, lua_gettop(m_stack->state)));
-
-            if (protectedCall)
-            {
-                if (lua_pcall(m_stack->state, 0, LUA_MULTRET, 0))
-                    throw RuntimeError(m_stack->state);
-            }
-            else
-                lua_call(m_stack->state, 0, LUA_MULTRET);
-        }
-
         template<typename... Ts>
         Value executeFunction(bool protectedCall, Ts&&... args) const
         {
@@ -307,7 +292,7 @@ namespace lua {
         template <typename T>
         T* toPtr() const
         {
-            return static_cast<T*>(Pointer(*this));
+            return static_cast<T*>(to<Pointer>());
         }
         
         // get
@@ -345,7 +330,7 @@ namespace lua {
             bool success = get<lua::Pointer>(cptr);
             
             if (success)
-                pointer = static_cast<T*>(Pointer(*this));
+                pointer = static_cast<T*>(cptr);
             
             return success;
         }
@@ -409,7 +394,6 @@ namespace lua {
         {
             set<double>(std::forward<K>(key), number);
         }
-        
     };
 
     template<>

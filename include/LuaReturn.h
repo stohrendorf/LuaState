@@ -22,7 +22,7 @@ namespace lua {
         
         
         //////////////////////////////////////////////////////////////////////////////////////////////
-        template<std::size_t I, typename... Ts>
+        template<typename... Ts>
         class Pop final
         {
             
@@ -34,9 +34,6 @@ namespace lua {
                                       detail::DeallocQueue* deallocQueue,
                                       int stackTop)
             {
-//                if (!stack::check<T>(luaState, stackTop))
-//                    throw lua::TypeMismatchError(luaState, stackTop);
-                
                 return lua::Value(std::make_shared<detail::StackItem>(luaState, deallocQueue, stackTop - 1, 1, 0)).to<T>();
             }
             
@@ -57,7 +54,7 @@ namespace lua {
                                                            detail::DeallocQueue* deallocQueue,
                                                            int stackTop)
             {
-                return unpackMultiValues(luaState, deallocQueue, stackTop, typename traits::MakeIndices<I>::Type());
+                return unpackMultiValues(luaState, deallocQueue, stackTop, typename traits::MakeIndices<sizeof...(Ts)>::Type());
             }
         };
 
@@ -67,7 +64,7 @@ namespace lua {
                                              detail::DeallocQueue* deallocQueue,
                                              int stackTop)
         {
-            return Pop<sizeof...(Ts), Ts...>::getMultiValues(luaState, deallocQueue, stackTop);
+            return Pop<Ts...>::getMultiValues(luaState, deallocQueue, stackTop);
         }
 
         template<>
@@ -86,7 +83,7 @@ namespace lua {
     class Return final
     {
         /// Return values
-        std::tuple<Ts&...> m_tuple;
+        std::tuple<Ts&...> m_tiedValues;
         
 	public:
         
@@ -94,7 +91,7 @@ namespace lua {
         ///
         /// @param args    Return values
         explicit Return(Ts&... args)
-            : m_tuple(args...)
+            : m_tiedValues(args...)
         {
         }
         
@@ -107,7 +104,8 @@ namespace lua {
             int requiredValues = std::min<int>(sizeof...(Ts), value.m_stack->pushed);
             
             // When there are more returned values than variables in tuple, we will clear values that are not needed
-            if (requiredValues < (value.m_stack->grouped + 1)) {
+            if (requiredValues < (value.m_stack->grouped + 1))
+            {
                 
                 int currentStackTop = lua_gettop(value.m_stack->state);
                 
@@ -121,7 +119,7 @@ namespace lua {
             // We will take pushed values and distribute them to returned lua::Values
             value.m_stack->pushed = 0;
             
-            m_tuple = stack::get_and_pop<traits::RemoveCVR<Ts>...>(value.m_stack->state, value.m_stack->deallocQueue, value.m_stack->top + 1);
+            m_tiedValues = stack::get_and_pop<traits::RemoveCVR<Ts>...>(value.m_stack->state, value.m_stack->deallocQueue, value.m_stack->top + 1);
 	    }
         
 	};

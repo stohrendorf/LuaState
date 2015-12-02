@@ -13,7 +13,7 @@
 namespace lua {
     
     /// Reference to Lua value. Can be created from any lua::Value
-    class Ref final
+    class ValueReference final
     {
         /// Pointer of Lua state
         lua_State* m_luaState = nullptr;
@@ -29,20 +29,20 @@ namespace lua {
         
     public:
         
-        explicit Ref() = default;
+        explicit ValueReference() = default;
         
         // Copy and move constructors just use operator functions
-        explicit Ref(const Value& value)
+        explicit ValueReference(const Value& value)
         {
             operator=(value);
         }
 
-        explicit Ref(Value&& value)
+        explicit ValueReference(Value&& value)
         {
             operator=(std::forward<Value>(value));
         }
         
-        ~Ref()
+        ~ValueReference()
         {
             luaL_unref(m_luaState, LUA_REGISTRYINDEX, m_refKey);
         }

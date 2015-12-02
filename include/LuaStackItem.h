@@ -17,30 +17,27 @@ namespace lua { namespace detail {
     //////////////////////////////////////////////////////////////////////////////////////////////
     struct DeallocStackItem
     {
-        int stackCap;
-        int numElements;
+        int end;
+        int size;
         
         DeallocStackItem(int stackTop, int numElements)
-            : stackCap(stackTop + numElements)
-            , numElements(numElements)
+            : end(stackTop + numElements)
+            , size(numElements)
         {
+        }
+
+        bool operator<(const DeallocStackItem& rhs) const noexcept
+        {
+            return end < rhs.end;
         }
     };
     
     //////////////////////////////////////////////////////////////////////////////////////////////
-    struct DeallocStackComparison
+    using DeallocQueue = std::priority_queue<DeallocStackItem>;
+    
+    //////////////////////////////////////////////////////////////////////////////////////////////
+    struct StackItem
     {
-        bool operator() (const DeallocStackItem& lhs, const DeallocStackItem& rhs) const
-        {
-            return lhs.stackCap < rhs.stackCap;
-        }
-    };
-    
-    //////////////////////////////////////////////////////////////////////////////////////////////
-    typedef std::priority_queue<DeallocStackItem, std::vector<DeallocStackItem>, DeallocStackComparison> DeallocQueue;
-    
-    //////////////////////////////////////////////////////////////////////////////////////////////
-    struct StackItem {
         
         lua_State* state = nullptr;
         detail::DeallocQueue* deallocQueue = nullptr;
@@ -57,39 +54,44 @@ namespace lua { namespace detail {
         StackItem() = default;
         
         StackItem(lua_State* luaState, detail::DeallocQueue* deallocQueue, int stackTop, int pushedValues, int groupedValues)
-        : state(luaState)
-        , deallocQueue(deallocQueue)
-        , top(stackTop)
-        , pushed(pushedValues)
-        , grouped(groupedValues)
+            : state(luaState)
+            , deallocQueue(deallocQueue)
+            , top(stackTop)
+            , pushed(pushedValues)
+            , grouped(groupedValues)
         {
         }
         
         ~StackItem()
         {
             // Check if stack is managed automaticaly (_deallocQueue == nullptr), which is when we call C functions from Lua
-            if (deallocQueue != nullptr) {
+            if (deallocQueue == nullptr)
+                return;
                 
-                // Check if we dont try to release same values twice
-                int currentStackTop = lua_gettop(state);
-                if (currentStackTop < pushed + top) {
-                    return;
+            // Check if we dont try to release same values twice
+            int currentStackTop = lua_gettop(state);
+            if (currentStackTop < pushed + top)
+            {
+                return;
+            }
+
+            // We will check if we haven't pushed some other new lua::Value to stack
+            if (top + pushed == currentStackTop)
+            {
+
+                // We will check deallocation priority queue, if there are some lua::Value instances to be deleted
+                while (!deallocQueue->empty() && deallocQueue->top().end == top)
+                {
+                    top -= deallocQueue->top().size;
+                    deallocQueue->pop();
                 }
-                
-                // We will check if we haven't pushed some other new lua::Value to stack
-                if (top + pushed == currentStackTop) {
-                    
-                    // We will check deallocation priority queue, if there are some lua::Value instances to be deleted
-                    while (!deallocQueue->empty() && deallocQueue->top().stackCap == top) {
-                        top -= deallocQueue->top().numElements;
-                        deallocQueue->pop();
-                    }
-                    lua_settop(state, top);
-                }
+                lua_settop(state, top);
+            }
+            else
+            {
                 // If yes we can't pop values, we must pop it after deletion of newly created lua::Value
                 // We will put this deallocation to our priority queue, so it will be deleted as soon as possible
-                else
-                    deallocQueue->push(detail::DeallocStackItem(top, pushed));
+                deallocQueue->push(detail::DeallocStackItem(top, pushed));
             }
         }
     };
