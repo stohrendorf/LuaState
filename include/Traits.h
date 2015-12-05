@@ -109,7 +109,7 @@ namespace lua { namespace traits {
 
         static inline int push(lua_State* luaState, T value) noexcept
         {
-            lua_pushnumber(luaState, value);
+            lua_pushinteger(luaState, value);
             return 1;
         }
     };
@@ -438,23 +438,23 @@ namespace lua { namespace traits {
     {
     private:
         template<std::size_t... Indexes>
-        static void pushTuple(lua_State* luaState, traits::IndexTuple<Indexes...>, std::tuple<Args&&...>&& tup) noexcept
+        static int pushTuple(lua_State* luaState, traits::IndexTuple<Indexes...>, std::tuple<Args&&...>&& tup) noexcept
         {
-            pushRec(luaState, std::get<Indexes>(tup)...);
+            return pushRec(luaState, std::get<Indexes>(tup)...);
         }
 
         template<std::size_t... Indexes>
-        static void pushTuple(lua_State* luaState, traits::IndexTuple<Indexes...>, const std::tuple<Args...>& tup) noexcept
+        static int pushTuple(lua_State* luaState, traits::IndexTuple<Indexes...>, const std::tuple<Args...>& tup) noexcept
         {
-            pushRec(luaState, std::get<Indexes>(tup)...);
+            return pushRec(luaState, std::get<Indexes>(tup)...);
         }
 
         template<typename T1, typename... Ts>
-        static inline int pushRec(lua_State* luaState, T1&& value1,  Ts&&... values) noexcept
+        static int pushRec(lua_State* luaState, T1&& value1,  Ts&&... values) noexcept
         {
-            ValueTraits<T1>::push(luaState, std::forward<T1>(value1));
-            pushRec(luaState, std::forward<Ts>(values)...);
-            return static_cast<int>(sizeof...(Ts) + 1);
+            auto n = ValueTraits<T1>::push(luaState, std::forward<T1>(value1));
+            n += pushRec(luaState, std::forward<Ts>(values)...);
+            return n;
         }
 
         static inline int pushRec(lua_State*) noexcept
@@ -465,14 +465,12 @@ namespace lua { namespace traits {
     public:
         static inline int push(lua_State* luaState, std::tuple<Args&&...>&& value) noexcept
         {
-            pushTuple(luaState, typename traits::MakeIndexTuple<Args...>::Type(), std::forward<std::tuple<Args&&...>>(value));
-            return static_cast<int>(sizeof...(Args));
+            return pushTuple(luaState, typename traits::MakeIndexTuple<Args...>::Type(), std::forward<std::tuple<Args&&...>>(value));
         }
 
         static inline int push(lua_State* luaState, const std::tuple<Args...>& value) noexcept
         {
-            pushTuple(luaState, typename traits::MakeIndexTuple<Args...>::Type(), value);
-            return static_cast<int>(sizeof...(Args));
+            return pushTuple(luaState, typename traits::MakeIndexTuple<Args...>::Type(), value);
         }
 
         static inline int push(lua_State* luaState, Args&&... args) noexcept

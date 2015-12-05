@@ -51,12 +51,10 @@ namespace lua {
         template<typename... Ts>
         void callFunction(bool protectedCall, Ts&&... args) const
         {
-            constexpr size_t argCount = 1 + sizeof...(args);
-            
             // Function must be on top of stack
             assert(traits::ValueTraits<lua::Callable>::isCompatible(m_stack->state, lua_gettop(m_stack->state)));
             
-            traits::ValueTraits<std::tuple<Ts...>>::push(m_stack->state, std::forward<Ts>(args)...);
+            const auto argCount = traits::ValueTraits<std::tuple<Ts...>>::push(m_stack->state, std::forward<Ts>(args)...);
 
             if (protectedCall)
             {
@@ -286,6 +284,11 @@ namespace lua {
             return to<lua::Boolean>();
         }
 
+        bool isNil() const
+        {
+            return is<lua::Nil>();
+        }
+
         /// Will get pointer casted to given template type
         ///
         /// @return Pointer staticaly casted to given template type
@@ -400,6 +403,11 @@ namespace lua {
     inline lua::Value Value::to() const
     {
         return *this;
+    }
+
+    inline bool operator!(const Value& rhs)
+    {
+        return rhs.isNil();
     }
 
     namespace traits {
