@@ -11,9 +11,7 @@
 #include "LuaValue.h"
 #include "Traits.h"
 
-#include <lua.hpp>
-
-#include <cstdint>
+#include <tuple>
 
 namespace lua {
     
@@ -79,13 +77,13 @@ namespace lua {
 
     //////////////////////////////////////////////////////////////////////////////////////////////
     /// Class for automaticly cas lua::Function instance to multiple return values with lua::tie
-	template <typename ... Ts>
+    template <typename ... Ts>
     class Return final
     {
         /// Return values
         std::tuple<Ts&...> m_tiedValues;
         
-	public:
+    public:
         
         /// Constructs class with given arguments
         ///
@@ -104,7 +102,7 @@ namespace lua {
             int requiredValues = std::min<int>(sizeof...(Ts), value.m_stack->pushed);
             
             // When there are more returned values than variables in tuple, we will clear values that are not needed
-            if (requiredValues < (value.m_stack->grouped + 1))
+            if (requiredValues < value.m_stack->grouped + 1)
             {
                 
                 int currentStackTop = lua_gettop(value.m_stack->state);
@@ -120,9 +118,9 @@ namespace lua {
             value.m_stack->pushed = 0;
             
             m_tiedValues = stack::get_and_pop<traits::RemoveCVR<Ts>...>(value.m_stack->state, value.m_stack->deallocQueue, value.m_stack->top + 1);
-	    }
+        }
         
-	};
+    };
     
     /// Use this function when you want to retrieve multiple return values from lua::Function
     template <typename ... Ts>

@@ -10,7 +10,6 @@
 
 #include "LuaException.h"
 #include "LuaPrimitives.h"
-#include "LuaStack.h"
 #include "LuaStackItem.h"
 
 #include <cassert>
@@ -140,20 +139,6 @@ namespace lua {
             return Value(std::make_shared<detail::StackItem>(m_stack->state, m_stack->deallocQueue, lua_gettop(m_stack->state) - 1, 1, 0));
         }
         
-        /// While chaining [] operators we will call this function multiple times and can query nested tables.
-        ///
-        /// @note This function doesn't check if current value is lua::Table. You must use is<lua::Table>() function if you want to be sure
-        template<typename T>
-        Value&& operator[](T&& key) &&
-        {
-            traits::ValueTraits<T>::get(m_stack->state, m_stack->top + m_stack->pushed - m_stack->grouped, std::forward<T>(key));
-            ++m_stack->pushed;
-
-            m_stack->grouped = 0;
-
-            return std::forward<Value>(*this);
-        }
-
         /// Call given value.
         ///
         /// @note This function doesn't check if current value is lua::Callable. You must use is<lua::Callable>() function if you want to be sure
@@ -168,24 +153,6 @@ namespace lua {
         /// @note This function doesn't check if current value is lua::Callable. You must use is<lua::Callable>() function if you want to be sure
         template<typename... Ts>
         Value call(Ts&&... args) const
-        {
-            return executeFunction(true, std::forward<Ts>(args)...);
-        }
-        
-        /// Call given value.
-        ///
-        /// @note This function doesn't check if current value is lua::Callable. You must use is<lua::Callable>() function if you want to be sure
-        template<typename... Ts>
-        Value&& operator()(Ts&&... args) &&
-        {
-            return executeFunction(false, std::forward<Ts>(args)...);
-        }
-        
-        /// Protected call of given value.
-        ///
-        /// @note This function doesn't check if current value is lua::Callable. You must use is<lua::Callable>() function if you want to be sure
-        template<typename... Ts>
-        Value&& call(Ts&&... args) &&
         {
             return executeFunction(true, std::forward<Ts>(args)...);
         }

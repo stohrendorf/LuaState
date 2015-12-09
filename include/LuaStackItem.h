@@ -8,7 +8,7 @@
 
 #pragma once
 
-#include "LuaStack.h"
+#include <lua.hpp>
 
 #include <queue>
 

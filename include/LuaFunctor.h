@@ -9,9 +9,9 @@
 
 #pragma once
 
-#include "LuaState.h"
-#include "Traits.h"
+#include "LuaReturn.h"
 
+#include <functional>
 #include <type_traits>
 
 namespace lua {

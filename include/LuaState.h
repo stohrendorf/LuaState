@@ -10,27 +10,16 @@
 
 #pragma once
 
-#include <cassert>
-#include <string>
-#include <functional>
-#include <memory>
-#include <tuple>
-#include <cstring>
-#include <cmath>
-
-#include <lua.hpp>
-
 #include "Traits.h"
 
 #include "LuaPrimitives.h"
-#include "LuaStack.h"
 #include "LuaException.h"
 #include "LuaStackItem.h"
 #include "LuaValue.h"
-#include "LuaReturn.h"
 #include "LuaFunctor.h"
-#include "ValueReference.h"
 #include "Any.h"
+
+#include <memory>
 
 namespace lua {
     

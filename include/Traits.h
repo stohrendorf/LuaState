@@ -10,9 +10,10 @@
 
 #include "LuaPrimitives.h"
 
+#include <algorithm>
 #include <cmath>
-#include <functional>
 #include <limits>
+#include <string>
 
 namespace lua { namespace traits {
     
@@ -172,7 +173,7 @@ namespace lua { namespace traits {
 
         static inline int push(lua_State* luaState, T value) noexcept
         {
-            lua_pushnumber(luaState, value);
+            lua_pushinteger(luaState, static_cast<typename std::make_signed<T>::type>(value));
             return 1;
         }
     };
@@ -317,18 +318,18 @@ namespace lua { namespace traits {
             return lua_isstring(luaState, index) != 0;
         }
 
-        static inline void get(lua_State* luaState, int index, std::string key) noexcept
+        static inline void get(lua_State* luaState, int index, const std::string& key) noexcept
         {
             lua_getfield(luaState, index, key.c_str());
         }
 
-        static inline int push(lua_State* luaState, std::string value) noexcept
+        static inline int push(lua_State* luaState, const std::string& value) noexcept
         {
             lua_pushstring(luaState, value.c_str());
             return 1;
         }
 
-        static inline int push(lua_State* luaState, std::string value, std::size_t length) noexcept
+        static inline int push(lua_State* luaState, const std::string& value, std::size_t length) noexcept
         {
             lua_pushlstring(luaState, value.substr(0, length).c_str(), std::min(length, value.length()));
             return 1;

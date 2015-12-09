@@ -2,7 +2,6 @@
 
 #include "LuaPrimitives.h"
 #include "Traits.h"
-#include "LuaException.h"
 
 #include <memory>
 

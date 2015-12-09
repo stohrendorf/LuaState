@@ -10,7 +10,6 @@
 
 #include <lua.hpp>
 
-#include <string>
 #include <type_traits>
 
 namespace lua

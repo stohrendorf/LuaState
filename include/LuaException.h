@@ -10,7 +10,6 @@
 
 #include <lua.hpp>
 
-#include <cstring>
 #include <stdexcept>
 #include <iostream>
 #include <string>
