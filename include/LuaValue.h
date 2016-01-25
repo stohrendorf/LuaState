@@ -223,7 +223,7 @@ namespace lua {
         
         std::string toString() const
         {
-            return to<lua::String>();
+            return to<std::string>();
         }
         
         lua::Number toNumber() const
