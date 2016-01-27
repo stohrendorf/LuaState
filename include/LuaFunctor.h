@@ -21,7 +21,7 @@ namespace lua {
     struct BaseFunctor
     {
         template<typename Ret, typename... Args, size_t... Indexes >
-        static Ret callHelper(std::function<Ret(Args...)> func, traits::IndexTuple<Indexes...>, std::tuple<Args...>&& args)
+        static Ret callHelper(std::function<Ret(Args...)> func, std::tuple<Args...>&& args, const traits::IndexTuple<Indexes...>&)
         {
             return func( std::forward<Args>(std::get<Indexes>(args))... );
         }
@@ -29,7 +29,7 @@ namespace lua {
         template<typename Ret, typename... Args>
         static Ret call(std::function<Ret(Args...)> pf, std::tuple<Args...>&& tup)
         {
-            return callHelper(pf, typename traits::MakeIndexTuple<Args...>::Type(), std::forward<std::tuple<Args...>>(tup));
+            return callHelper(pf, std::forward<std::tuple<Args...>>(tup), typename traits::MakeIndexTuple<Args...>::Type());
         }
 
 
@@ -113,7 +113,7 @@ namespace lua {
         {
             static inline int push(lua_State* luaState, std::function<Ret(Args...)> function) {
                 BaseFunctor** udata{ static_cast<BaseFunctor**>( lua_newuserdata(luaState, sizeof(BaseFunctor *)) ) };
-                *udata = new Functor<Ret, Args...>(function);
+                *udata = new Functor<Ret, traits::RemoveCVR<Args>...>(function);
 
                 luaL_getmetatable(luaState, "luaL_Functor");
                 lua_setmetatable(luaState, -2);
@@ -128,11 +128,6 @@ namespace lua {
 
         template<typename Ret, typename... Args>
         struct ValueTraits<Ret(*)(Args...)> : ValueTraits<std::function<Ret(Args...)>>
-        {
-        };
-
-        template <typename T>
-        struct ValueTraits : public ValueTraits<decltype(&T::operator())>
         {
         };
 
