@@ -47,38 +47,51 @@ namespace lua {
         
     }
 
-    //////////////////////////////////////////////////////////////////////////////////////////////
-    class LoadError : public std::runtime_error
+    class ExceptionBase : public std::exception
     {
         std::string m_message;
-        
+
     public:
-        LoadError(lua_State* luaState)
-            : std::runtime_error{ lua_tostring(luaState, -1) }
+        explicit ExceptionBase(const std::string& msg)
+            : std::exception{}
+            , m_message{ msg }
+        {
+        }
+
+        const char* what() const override final
+        {
+            return m_message.c_str();
+        }
+    };
+
+    //////////////////////////////////////////////////////////////////////////////////////////////
+    class LoadError : public ExceptionBase
+    {
+    public:
+        explicit LoadError(lua_State* luaState)
+            : ExceptionBase{ lua_tostring(luaState, -1) }
         {
             lua_pop(luaState, 1);
         }
     };
     
     //////////////////////////////////////////////////////////////////////////////////////////////
-    class RuntimeError : public std::runtime_error
+    class RuntimeError : public ExceptionBase
     {
-        std::string m_message;
-        
     public:
-        RuntimeError(lua_State* luaState)
-            : std::runtime_error{ lua_tostring(luaState, -1) }
+        explicit RuntimeError(lua_State* luaState)
+            : ExceptionBase{ lua_tostring(luaState, -1) }
         {
             lua_pop(luaState, 1);
         }
     };
 
     //////////////////////////////////////////////////////////////////////////////////////////////
-    class TypeMismatchError : public std::runtime_error
+    class TypeMismatchError : public ExceptionBase
     {
     public:
-        TypeMismatchError(lua_State*, int index)
-            : std::runtime_error{ "Type mismatch error at index " + std::to_string(index) }
+        explicit TypeMismatchError(lua_State*, int index)
+            : ExceptionBase{ "Type mismatch error at index " + std::to_string(index) }
         {
         }
     };
