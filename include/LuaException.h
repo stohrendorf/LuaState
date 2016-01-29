@@ -58,7 +58,7 @@ namespace lua {
         {
         }
 
-        const char* what() const override final
+        const char* what() const noexcept(noexcept(m_message.c_str())) override final
         {
             return m_message.c_str();
         }
